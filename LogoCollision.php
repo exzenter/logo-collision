@@ -79,8 +79,8 @@ class Context_Aware_Animation {
      */
     public function add_settings_page() {
         add_options_page(
-            __('Context-Aware Animation Settings', 'logo-collision'),
-            __('Context-Aware Animation', 'logo-collision'),
+            __('Logo Collision Settings', 'logo-collision'),
+            __('Logo Collision', 'logo-collision'),
             'manage_options',
             'logo-collision',
             array($this, 'render_settings_page')

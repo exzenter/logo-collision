@@ -72,9 +72,10 @@ function caa_sanitize_ease($value) {
 if (isset($_POST['caa_save_mappings']) && check_admin_referer('caa_pro_mappings_nonce')) {
     $mappings = array();
     if (isset($_POST['caa_mappings']) && is_array($_POST['caa_mappings'])) {
-        foreach ($_POST['caa_mappings'] as $mapping) {
-            $selector = isset($mapping['selector']) ? sanitize_text_field(wp_unslash($mapping['selector'])) : '';
-            $effect = isset($mapping['effect']) ? caa_sanitize_effect(sanitize_text_field(wp_unslash($mapping['effect']))) : '1';
+        $caa_mappings = wp_unslash($_POST['caa_mappings']);
+        foreach ($caa_mappings as $mapping) {
+            $selector = isset($mapping['selector']) ? sanitize_text_field($mapping['selector']) : '';
+            $effect = isset($mapping['effect']) ? caa_sanitize_effect(sanitize_text_field($mapping['effect'])) : '1';
             
             // Only save non-empty selectors
             if (!empty($selector)) {
@@ -100,8 +101,9 @@ if (isset($_POST['caa_save_filtering']) && check_admin_referer('caa_pro_filterin
     $selected_post_types = array();
     if (isset($_POST['caa_pro_post_types']) && is_array($_POST['caa_pro_post_types'])) {
         $valid_post_types = array_keys(get_post_types(array('public' => true), 'names'));
-        foreach ($_POST['caa_pro_post_types'] as $post_type) {
-            $post_type = sanitize_text_field(wp_unslash($post_type));
+        $caa_pro_post_types = wp_unslash($_POST['caa_pro_post_types']);
+        foreach ($caa_pro_post_types as $post_type) {
+            $post_type = sanitize_text_field($post_type);
             if (in_array($post_type, $valid_post_types, true)) {
                 $selected_post_types[] = $post_type;
             }
@@ -115,7 +117,8 @@ if (isset($_POST['caa_save_filtering']) && check_admin_referer('caa_pro_filterin
     // Handle selected items
     $selected_items = array();
     if (isset($_POST['caa_pro_selected_items']) && is_array($_POST['caa_pro_selected_items'])) {
-        foreach ($_POST['caa_pro_selected_items'] as $item_id) {
+        $caa_pro_selected_items = wp_unslash($_POST['caa_pro_selected_items']);
+        foreach ($caa_pro_selected_items as $item_id) {
             $item_id = absint($item_id);
             if ($item_id > 0) {
                 $selected_items[] = $item_id;
