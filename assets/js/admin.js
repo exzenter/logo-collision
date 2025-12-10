@@ -59,8 +59,8 @@
         if (hash) {
             var hashValue = hash.substring(1);
             
-            // Check if it's a sub-tab (pro-mappings or pro-filtering)
-            if (hashValue === 'pro-mappings' || hashValue === 'pro-filtering') {
+            // Check if it's a sub-tab (pro-instances, pro-mappings or pro-filtering)
+            if (hashValue === 'pro-instances' || hashValue === 'pro-mappings' || hashValue === 'pro-filtering') {
                 // Activate the pro-version main tab first
                 $('.caa-tabs .nav-tab').removeClass('nav-tab-active');
                 $('.caa-tabs .nav-tab[data-tab="pro-version"]').addClass('nav-tab-active');
@@ -82,10 +82,10 @@
                 $('.caa-tab-content').removeClass('caa-tab-active');
                 $('#' + hashValue).addClass('caa-tab-active');
                 
-                // If it's the pro-version tab, activate default sub-tab
+                // If it's the pro-version tab, activate default sub-tab (instances)
                 if (hashValue === 'pro-version') {
                     setTimeout(function() {
-                        $('.caa-sub-tabs .nav-tab[data-subtab="pro-mappings"]').trigger('click');
+                        $('.caa-sub-tabs .nav-tab[data-subtab="pro-instances"]').trigger('click');
                     }, 10);
                 }
             }
@@ -544,6 +544,36 @@
             $(this).closest('.caa-item-tag').fadeOut(200, function() {
                 $(this).remove();
             });
+        });
+        
+        // =====================
+        // Instance Editor
+        // =====================
+        
+        // Handle instance effect radio button changes
+        $('.caa-instance-effect-radio').on('change', function() {
+            var selectedEffect = $(this).val();
+            
+            // Hide all instance effect accordions
+            $('.caa-instance-effect-accordion').slideUp(200);
+            
+            // Show the accordion for the selected effect
+            $('.caa-instance-effect-accordion[data-effect="' + selectedEffect + '"]').slideDown(200);
+        });
+        
+        // Initialize: show accordion for currently selected instance effect
+        var selectedInstanceEffect = $('.caa-instance-effect-radio:checked').val();
+        if (selectedInstanceEffect) {
+            $('.caa-instance-effect-accordion[data-effect="' + selectedInstanceEffect + '"]').show();
+        }
+        
+        // Handle instance filtering toggle
+        $('#caa_instance_enable_filtering').on('change', function() {
+            if ($(this).is(':checked')) {
+                $('#caa-instance-filtering-options').slideDown(200);
+            } else {
+                $('#caa-instance-filtering-options').slideUp(200);
+            }
         });
         
     });

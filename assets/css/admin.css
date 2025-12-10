@@ -520,3 +520,161 @@
     padding-right: 15px;
 }
 
+/* =========================================
+   Instance Management Styles
+   ========================================= */
+
+.caa-instances-container {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    border-radius: 4px;
+    max-width: 800px;
+    margin-top: 20px;
+}
+
+.caa-instances-table {
+    margin: 0;
+    border: none;
+    border-radius: 0;
+}
+
+.caa-instances-table th,
+.caa-instances-table td {
+    padding: 12px 15px;
+}
+
+.caa-instances-table thead th {
+    background: #f0f0f1;
+    font-weight: 600;
+}
+
+.caa-col-status {
+    width: 60px;
+    text-align: center;
+}
+
+.caa-col-name {
+    width: auto;
+}
+
+.caa-col-effect {
+    width: 150px;
+}
+
+.caa-col-actions {
+    width: 150px;
+}
+
+.caa-status-enabled {
+    color: #00a32a;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.caa-status-disabled {
+    color: #999;
+    font-size: 18px;
+}
+
+.caa-no-instances {
+    padding: 30px 20px;
+    text-align: center;
+    color: #666;
+    font-style: italic;
+    margin: 0;
+}
+
+.caa-instances-actions {
+    padding: 15px;
+    background: #f9f9f9;
+    border-top: 1px solid #eee;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.caa-instances-count {
+    color: #666;
+    font-size: 13px;
+}
+
+/* Instance Editor Styles */
+.caa-instance-editor {
+    max-width: 800px;
+}
+
+.caa-instance-editor .form-table {
+    margin-top: 0;
+}
+
+.caa-instance-editor h3 {
+    margin-top: 30px;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #ddd;
+}
+
+.caa-instance-effect-accordion {
+    display: none;
+    margin-top: 0;
+    margin-left: 0;
+    padding: 15px 20px;
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    border-top: none;
+    border-radius: 0 0 4px 4px;
+}
+
+.caa-instance-effect-accordion[style*="display: block"],
+.caa-instance-effect-accordion[style*="display:block"] {
+    display: block !important;
+}
+
+.caa-instance-effect-accordion h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px dashed #ddd;
+    font-size: 14px;
+}
+
+.caa-instance-effect-accordion .form-table th {
+    width: 150px;
+    padding: 8px 10px 8px 0;
+}
+
+.caa-instance-effect-accordion .form-table td {
+    padding: 8px 0;
+}
+
+#caa-instance-filtering-options {
+    margin-top: 0;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+#caa-instance-filtering-options .form-table {
+    margin: 0;
+}
+
+/* Button styles for instance actions */
+.button-link-delete {
+    color: #b32d2e !important;
+    border-color: transparent !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.button-link-delete:hover {
+    color: #a00 !important;
+    background: #f9f9f9 !important;
+}
+
+.caa-pro-header .button {
+    margin-top: 10px;
+}
+

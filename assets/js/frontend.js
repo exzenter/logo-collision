@@ -1,4 +1,4 @@
-// Initialize GSAP ScrollTrigger
+// Initialize GSAP ScrollTrigger (once for all instances)
 gsap.registerPlugin(ScrollTrigger);
 
 // Default animation properties (simplified for WordPress version)
@@ -7,56 +7,60 @@ const defaultAnimationProps = {
   ease: 'power4'
 };
 
-// Main execution wrapped in IIFE to allow early returns
-(function() {
-  // Get settings from WordPress
-  const settings = typeof caaSettings !== 'undefined' ? caaSettings : {};
-  const logoSelector = settings.logoId || '';
-  const selectedEffect = parseInt(settings.selectedEffect) || 1;
-  const includedElementsStr = settings.includedElements || '';
-  const excludedElementsStr = settings.excludedElements || '';
-  const globalOffset = parseInt(settings.globalOffset) || 0;
-  const debugMode = settings.debugMode === '1';
-  
-  // Mobile disable settings
-  const disableMobile = settings.disableMobile === '1';
-  const mobileBreakpoint = parseInt(settings.mobileBreakpoint) || 768;
-  
-  // Check if effects should be disabled on mobile
-  if (disableMobile && window.innerWidth < mobileBreakpoint) {
-    if (debugMode) {
-      console.log('[CAA Debug] Effects disabled on mobile - viewport width:', window.innerWidth, '< breakpoint:', mobileBreakpoint);
-    }
-    return;
+// Helper function to verify SplitType library is available
+function waitForSplitType() {
+  let SplitTypeLib = globalThis.SplitType || window.SplitType;
+  if (SplitTypeLib && typeof SplitTypeLib === 'object' && SplitTypeLib.default) {
+    SplitTypeLib = SplitTypeLib.default;
   }
-  
-  // Parse offset settings from WordPress (allow negative values)
-  const offsetStart = parseInt(settings.offsetStart) || 30;
-  const offsetEnd = parseInt(settings.offsetEnd) || 10;
-  
-  // Parse effect mappings from Pro Version settings
-  const effectMappings = Array.isArray(settings.effectMappings) ? settings.effectMappings : [];
+  if (SplitTypeLib && typeof SplitTypeLib === 'function') {
+    return Promise.resolve(SplitTypeLib);
+  }
+  throw new Error('SplitType library is not available.');
+}
 
-  // Debug logging function
+/**
+ * Initialize a single instance with its settings
+ * @param {Object} instanceSettings - Settings for this instance
+ * @param {Object} globalSettings - Global settings (mobile, etc.)
+ */
+function initInstance(instanceSettings, globalSettings) {
+  const instanceId = instanceSettings.instanceId || 'default';
+  const logoSelector = instanceSettings.logoId || '';
+  const selectedEffect = parseInt(instanceSettings.selectedEffect) || 1;
+  const includedElementsStr = instanceSettings.includedElements || '';
+  const excludedElementsStr = instanceSettings.excludedElements || '';
+  const globalOffset = parseInt(instanceSettings.globalOffset) || 0;
+  const debugMode = instanceSettings.debugMode === '1';
+  
+  // Parse offset settings
+  const offsetStart = parseInt(instanceSettings.offsetStart) || 30;
+  const offsetEnd = parseInt(instanceSettings.offsetEnd) || 10;
+  
+  // Parse effect mappings
+  const effectMappings = Array.isArray(instanceSettings.effectMappings) ? instanceSettings.effectMappings : [];
+
+  // Debug logging function with instance prefix
+  const debugPrefix = `[CAA:${instanceId}]`;
   const debug = {
     log: (...args) => {
       if (debugMode) {
-        console.log('[CAA Debug]', ...args);
+        console.log(debugPrefix, ...args);
       }
     },
     warn: (...args) => {
       if (debugMode) {
-        console.warn('[CAA Debug]', ...args);
+        console.warn(debugPrefix, ...args);
       }
     },
     error: (...args) => {
       if (debugMode) {
-        console.error('[CAA Debug]', ...args);
+        console.error(debugPrefix, ...args);
       }
     },
     group: (label) => {
       if (debugMode) {
-        console.group('[CAA Debug]', label);
+        console.group(debugPrefix, label);
       }
     },
     groupEnd: () => {
@@ -66,7 +70,8 @@ const defaultAnimationProps = {
     }
   };
 
-  debug.log('Plugin initialized', {
+  debug.log('Instance initialized', {
+    instanceId,
     logoSelector,
     selectedEffect,
     includedElements: includedElementsStr,
@@ -79,17 +84,16 @@ const defaultAnimationProps = {
 
   // Exit if no logo selector is provided
   if (!logoSelector) {
-    console.warn('Context-Aware Animation: No logo ID specified in settings.');
-    debug.warn('No logo selector provided - plugin will not run');
-    return;
+    debug.warn('No logo selector provided - instance will not run');
+    return null;
   }
 
   // Find the logo element
   const logoElement = document.querySelector(logoSelector);
   if (!logoElement) {
-    console.warn(`Context-Aware Animation: Logo element not found with selector: ${logoSelector}`);
+    console.warn(`Context-Aware Animation [${instanceId}]: Logo element not found with selector: ${logoSelector}`);
     debug.warn('Logo element not found with selector:', logoSelector);
-    return;
+    return null;
   }
 
   debug.log('Logo element found:', logoElement);
@@ -105,11 +109,9 @@ const defaultAnimationProps = {
 
   // Function to reset the logo element to its original state
   function resetElement(target) {
-    // Restore original HTML content
     target.innerHTML = originalHTMLContent;
-    // Remove any transformations and set properties back to default values
     gsap.set(target, {
-      clearProps: 'all', // Clear all GSAP-applied properties
+      clearProps: 'all',
       rotation: 0,
       xPercent: 0,
       yPercent: 0,
@@ -118,14 +120,13 @@ const defaultAnimationProps = {
       scale: 1,
       autoAlpha: 1,
     });
-    // Restore any initial inline styles if present
     target.setAttribute('style', originalStyles);
   }
 
   // Function to get the logo element's position from the top of the viewport
   function getElementTopOffset(element) {
     const elementRect = element.getBoundingClientRect();
-    return elementRect.top; // Returns the distance of the element from the top of the viewport
+    return elementRect.top;
   }
 
   // Parse included and excluded elements
@@ -146,7 +147,6 @@ const defaultAnimationProps = {
   // Get all content blocks
   let contentBlocks = [];
   
-  // If included elements are specified, use those
   if (includedSelectors.length > 0) {
     debug.log('Using custom included selectors');
     includedSelectors.forEach(selector => {
@@ -154,7 +154,6 @@ const defaultAnimationProps = {
         const elements = document.querySelectorAll(selector);
         debug.log(`Selector "${selector}" found ${elements.length} element(s)`);
         elements.forEach(el => {
-          // Check if element is excluded
           const isExcluded = excludedSelectors.some(excludedSelector => {
             try {
               return el.matches(excludedSelector) || el.closest(excludedSelector) !== null;
@@ -177,7 +176,6 @@ const defaultAnimationProps = {
     });
   } else {
     debug.log('Using auto-detection for content blocks');
-    // Auto-detect WordPress content blocks (common selectors)
     const contentSelectors = [
       '.entry-content',
       'main',
@@ -193,7 +191,6 @@ const defaultAnimationProps = {
       const elements = document.querySelectorAll(selector);
       debug.log(`Auto-detection selector "${selector}" found ${elements.length} element(s)`);
       elements.forEach(el => {
-        // Check if element is excluded
         const isExcluded = excludedSelectors.some(excludedSelector => {
           try {
             return el.matches(excludedSelector) || el.closest(excludedSelector) !== null;
@@ -209,18 +206,14 @@ const defaultAnimationProps = {
       });
     });
 
-    // If no content blocks found, try a more general approach
     if (contentBlocks.length === 0) {
       debug.log('No content blocks found with standard selectors, trying general approach');
       const bodyChildren = Array.from(document.body.children);
       contentBlocks = bodyChildren.filter(el => {
-        // Skip header, nav, footer, and excluded elements
         const tagName = el.tagName.toLowerCase();
         if (['header', 'nav', 'footer', 'script', 'style'].includes(tagName)) {
           return false;
         }
-        
-        // Check if excluded
         const isExcluded = excludedSelectors.some(excludedSelector => {
           try {
             return el.matches(excludedSelector) || el.closest(excludedSelector) !== null;
@@ -228,7 +221,6 @@ const defaultAnimationProps = {
             return false;
           }
         });
-        
         return !isExcluded && el.offsetHeight > 0;
       });
       debug.log(`General approach found ${contentBlocks.length} content block(s)`);
@@ -239,7 +231,7 @@ const defaultAnimationProps = {
   contentBlocks = [...new Set(contentBlocks)];
   debug.log(`Total content blocks found: ${contentBlocks.length}`, contentBlocks);
 
-  // Add mapped elements as content blocks (mappings work independently of Include Elements)
+  // Add mapped elements as content blocks
   if (effectMappings.length > 0) {
     debug.log('Adding mapped elements as content blocks...');
     effectMappings.forEach(mapping => {
@@ -261,32 +253,11 @@ const defaultAnimationProps = {
 
   debug.groupEnd();
 
-  // Helper function to verify SplitType library is available
-  // SplitType should be loaded synchronously at page load, so this is just a verification
-  function waitForSplitType() {
-    // Check for SplitType on window/globalThis
-    let SplitTypeLib = globalThis.SplitType || window.SplitType;
-    
-    // If SplitType exists but might be wrapped in a default export
-    if (SplitTypeLib && typeof SplitTypeLib === 'object' && SplitTypeLib.default) {
-      SplitTypeLib = SplitTypeLib.default;
-    }
-    
-    if (SplitTypeLib && typeof SplitTypeLib === 'function') {
-      return Promise.resolve(SplitTypeLib);
-    }
-    
-    // If not available, throw error immediately (should have loaded at page load)
-    throw new Error('SplitType library is not available. It should be loaded synchronously at page load. Ensure the selected effect requires text splitting and SplitType is properly enqueued.');
-  }
-
-  // Build effect functions based on effect number (allows per-element effects)
-  // overrideSettings is an optional object with per-mapping settings overrides
+  // Build effect functions based on effect number
   function buildEffect(effectNumber = selectedEffect, overrideSettings = null) {
-    // Determine the source of settings - use override if provided, otherwise global
     const useOverride = overrideSettings !== null;
+    const settings = instanceSettings;
     
-    // Merge WordPress settings with defaults, applying overrides if present
     const animationProps = {
       duration: useOverride && overrideSettings.duration !== undefined 
         ? parseFloat(overrideSettings.duration) 
@@ -296,7 +267,6 @@ const defaultAnimationProps = {
         : (settings.ease || defaultAnimationProps.ease)
     };
     
-    // Use override offset settings if provided, otherwise use global WordPress settings
     const effectOffsetStart = useOverride && overrideSettings.offsetStart !== undefined 
       ? parseInt(overrideSettings.offsetStart) 
       : offsetStart;
@@ -335,9 +305,7 @@ const defaultAnimationProps = {
             scale: effect1Settings.scaleDown,
             autoAlpha: 0,
             ...animationProps,
-            onComplete: () => {
-              target.currentTween = null;
-            }
+            onComplete: () => { target.currentTween = null; }
           });
         },
         onLeave: (target) => {
@@ -346,10 +314,7 @@ const defaultAnimationProps = {
             scale: 1,
             autoAlpha: 1,
             ...animationProps,
-            onComplete: () => {
-              resetElement(target);
-              target.currentTween = null;
-            }
+            onComplete: () => { resetElement(target); target.currentTween = null; }
           });
         }
       };
@@ -379,9 +344,7 @@ const defaultAnimationProps = {
             scale: effect2Settings.blurScale,
             duration: effect2Settings.blurDuration,
             ease: 'sine',
-            onComplete: () => {
-              target.currentTween = null;
-            }
+            onComplete: () => { target.currentTween = null; }
           });
         },
         onLeave: (target) => {
@@ -390,10 +353,7 @@ const defaultAnimationProps = {
             filter: 'blur(0px)',
             scale: 1,
             ...animationProps,
-            onComplete: () => {
-              resetElement(target);
-              target.currentTween = null;
-            }
+            onComplete: () => { resetElement(target); target.currentTween = null; }
           });
         }
       };
@@ -412,9 +372,7 @@ const defaultAnimationProps = {
           target.currentTween = gsap.to(target.querySelector('.oh__inner'), {
             yPercent: -102,
             ...animationProps,
-            onComplete: () => {
-              target.currentTween = null;
-            }
+            onComplete: () => { target.currentTween = null; }
           });
         },
         onLeave: (target) => {
@@ -451,47 +409,27 @@ const defaultAnimationProps = {
         onEnter: async (target) => {
           if (target.currentTween) target.currentTween.kill();
           resetElement(target);
-          // Wait for SplitType to be available before importing TextSplitter
           await waitForSplitType();
-          // Dynamically import TextSplitter only when needed
           const { TextSplitter } = await import('./textSplitter.js');
           target.textSplitter = new TextSplitter(target, { splitTypeTypes: 'chars' });
           target.currentTween = gsap.to(target.textSplitter.getChars(), {
             x: () => gsap.utils.random(-effect4Settings.textXRange, effect4Settings.textXRange),
             y: () => gsap.utils.random(-effect4Settings.textYRange, 0),
             autoAlpha: 0,
-            stagger: {
-              amount: effect4Settings.staggerAmount,
-              from: 'random'
-            },
+            stagger: { amount: effect4Settings.staggerAmount, from: 'random' },
             ...animationProps,
-            onComplete: () => {
-              target.currentTween = null;
-            }
+            onComplete: () => { target.currentTween = null; }
           });
         },
         onLeave: (target) => {
           if (target.currentTween) target.currentTween.kill();
           const chars = target.textSplitter?.getChars?.();
-          if (!chars) {
-            resetElement(target);
-            target.currentTween = null;
-            return;
-          }
+          if (!chars) { resetElement(target); target.currentTween = null; return; }
           target.currentTween = gsap.to(chars, {
-            x: 0,
-            y: 0,
-            autoAlpha: 1,
-            stagger: {
-              amount: effect4Settings.staggerAmount,
-              from: 'random'
-            },
+            x: 0, y: 0, autoAlpha: 1,
+            stagger: { amount: effect4Settings.staggerAmount, from: 'random' },
             ...animationProps,
-            onComplete: () => {
-              target.innerHTML = originalHTMLContent;
-              resetElement(target);
-              target.currentTween = null;
-            }
+            onComplete: () => { target.innerHTML = originalHTMLContent; resetElement(target); target.currentTween = null; }
           });
         }
       };
@@ -514,66 +452,34 @@ const defaultAnimationProps = {
         onEnter: async (target) => {
           if (target.currentTween) target.currentTween.kill();
           resetElement(target);
-          // Wait for SplitType to be available before importing TextSplitter
           await waitForSplitType();
-          // Dynamically import TextSplitter only when needed
           const { TextSplitter } = await import('./textSplitter.js');
           target.textSplitter = new TextSplitter(target, { splitTypeTypes: 'chars' });
           target.currentTween = gsap.to(target.textSplitter.getChars(), {
-            duration: 0.02,
-            ease: 'none',
-            autoAlpha: 0,
-            stagger: {
-              amount: 0.25,
-              from: 'end'
-            },
-            onComplete: () => {
-              target.currentTween = null;
-            }
+            duration: 0.02, ease: 'none', autoAlpha: 0,
+            stagger: { amount: 0.25, from: 'end' },
+            onComplete: () => { target.currentTween = null; }
           });
         },
         onLeave: (target) => {
           if (target.currentTween) target.currentTween.kill();
           const chars = target.textSplitter?.getChars?.();
-          if (!chars) {
-            resetElement(target);
-            target.currentTween = null;
-            return;
-          }
+          if (!chars) { resetElement(target); target.currentTween = null; return; }
           const getRandomChar = () => {
             const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
             return letters.charAt(Math.floor(Math.random() * letters.length));
           };
-      
           const tl = gsap.timeline({
-            onComplete: () => {
-              resetElement(target);
-              target.currentTween = null;
-            }
+            onComplete: () => { resetElement(target); target.currentTween = null; }
           });
-      
           chars.forEach((char, index) => {
             const originalChar = char.innerHTML;
-      
             for (let i = 0; i < effect5Settings.shuffleIterations; i++) {
-              tl.to(char, {
-                duration: effect5Settings.shuffleDuration,
-                textContent: getRandomChar(),
-                autoAlpha: 1,
-                ease: 'none'
-              });
+              tl.to(char, { duration: effect5Settings.shuffleDuration, textContent: getRandomChar(), autoAlpha: 1, ease: 'none' });
             }
-      
-            tl.to(char, {
-              duration: 0.02,
-              textContent: originalChar,
-              autoAlpha: 1,
-              ease: 'none'
-            });
-      
+            tl.to(char, { duration: 0.02, textContent: originalChar, autoAlpha: 1, ease: 'none' });
             tl.add('', index * effect5Settings.charDelay);
           });
-      
           target.currentTween = tl;
         }
       };
@@ -593,18 +499,6 @@ const defaultAnimationProps = {
           ? parseInt(overrideSettings.effect6OriginY) 
           : (settings.effect6OriginY !== undefined && settings.effect6OriginY !== '' ? parseInt(settings.effect6OriginY) : 100)
       };
-      debug.log('Effect 6 settings loaded:', {
-        rotation: effect6Settings.rotation,
-        xPercent: effect6Settings.xPercent,
-        originX6: effect6Settings.originX6,
-        originY6: effect6Settings.originY6,
-        fromWordPress: {
-          rotation: settings.effect6Rotation,
-          xPercent: settings.effect6XPercent,
-          originX: settings.effect6OriginX,
-          originY: settings.effect6OriginY
-        }
-      });
       return {
         offsetStartAmount: effectOffsetStart,
         offsetEndAmount: effectOffsetEnd,
@@ -617,22 +511,15 @@ const defaultAnimationProps = {
             rotation: effect6Settings.rotation,
             y: () => target.offsetWidth - target.offsetHeight,
             ...animationProps,
-            onComplete: () => {
-              target.currentTween = null;
-            }
+            onComplete: () => { target.currentTween = null; }
           });
         },
         onLeave: (target) => {
           if (target.currentTween) target.currentTween.kill();
           target.currentTween = gsap.to(target, {
-            rotation: 0,
-            xPercent: 0,
-            y: 0,
+            rotation: 0, xPercent: 0, y: 0,
             ...animationProps,
-            onComplete: () => {
-              resetElement(target);
-              target.currentTween = null;
-            },
+            onComplete: () => { resetElement(target); target.currentTween = null; }
           });
         }
       };
@@ -649,48 +536,33 @@ const defaultAnimationProps = {
         onEnter: (target) => {
           if (target.currentTween) target.currentTween.kill();
           resetElement(target);
-          
-          // Calculate move distance
           let animationProps_effect7 = { ...animationProps };
           if (effect7Settings.moveDistance) {
-            // Parse the value (e.g., "100px" or "50%")
             const match = effect7Settings.moveDistance.match(/^([+-]?\d+(?:\.\d+)?)(px|%)$/i);
             if (match) {
               const number = parseFloat(match[1]);
               const unit = match[2].toLowerCase();
               if (unit === 'px') {
-                // For pixels, use x property (negative to move left)
                 animationProps_effect7.x = -Math.abs(number);
               } else if (unit === '%') {
-                // For percentage, use xPercent (relative to element width, negative to move left)
                 animationProps_effect7.xPercent = -Math.abs(number);
               }
             }
-            // If parsing fails, fall through to default behavior
           }
-          
-          // If no custom distance set, use default behavior
           if (!effect7Settings.moveDistance || !animationProps_effect7.x && !animationProps_effect7.xPercent) {
             animationProps_effect7.x = () => -1 * (target.offsetWidth + target.offsetLeft);
           }
-          
           target.currentTween = gsap.to(target, {
             ...animationProps_effect7,
-            onComplete: () => {
-              target.currentTween = null;
-            }
+            onComplete: () => { target.currentTween = null; }
           });
         },
         onLeave: (target) => {
           if (target.currentTween) target.currentTween.kill();
           target.currentTween = gsap.to(target, {
-            x: 0,
-            xPercent: 0,
+            x: 0, xPercent: 0,
             ...animationProps,
-            onComplete: () => {
-              resetElement(target);
-              target.currentTween = null;
-            },
+            onComplete: () => { resetElement(target); target.currentTween = null; }
           });
         }
       };
@@ -706,10 +578,10 @@ const defaultAnimationProps = {
   const defaultEffect = buildEffect(selectedEffect);
 
   if (!defaultEffect) {
-    console.warn(`Context-Aware Animation: Invalid effect selected: ${selectedEffect}`);
+    console.warn(`Context-Aware Animation [${instanceId}]: Invalid effect selected: ${selectedEffect}`);
     debug.error('Invalid effect selected:', selectedEffect);
     debug.groupEnd();
-    return;
+    return null;
   }
 
   debug.log('Default effect built successfully:', {
@@ -718,92 +590,63 @@ const defaultAnimationProps = {
     hasOnEnter: typeof defaultEffect.onEnter === 'function',
     hasOnLeave: typeof defaultEffect.onLeave === 'function'
   });
-  
-  // Log effect mappings
   debug.log('Effect mappings:', effectMappings);
   debug.groupEnd();
 
-  // Store ScrollTrigger instances for cleanup
+  // Store ScrollTrigger instances for this instance
   let scrollTriggerInstances = [];
-  
-  // Track which effect is currently active (for smooth transitions between different effects)
   let currentActiveEffect = null;
-  let activeTriggersMap = new Map(); // Map to track which triggers are active and their effects
+  let activeTriggersMap = new Map();
 
-  // Simple 3-tier effect lookup: direct mapping > ancestor mapping > global default
-  // Returns an object with effect number and optional override settings
+  // Effect lookup function
   function getEffectForElement(element) {
-    // Priority 1: Direct mapping on this element
     for (const mapping of effectMappings) {
       const { selector, effect, overrideEnabled, settings } = mapping;
       if (!selector || !effect) continue;
       try {
         if (element.matches?.(selector.trim())) {
           debug.log('Direct mapping match:', selector, '-> Effect', effect, 'Override:', overrideEnabled);
-          return {
-            effectNumber: parseInt(effect),
-            overrideEnabled: overrideEnabled === true,
-            settings: overrideEnabled ? settings : null
-          };
+          return { effectNumber: parseInt(effect), overrideEnabled: overrideEnabled === true, settings: overrideEnabled ? settings : null };
         }
-      } catch (e) {
-        debug.warn('Invalid selector in mapping:', selector, e);
-      }
+      } catch (e) { debug.warn('Invalid selector in mapping:', selector, e); }
     }
-    
-    // Priority 2: Inherited from mapped ancestor (closest wins)
     for (const mapping of effectMappings) {
       const { selector, effect, overrideEnabled, settings } = mapping;
       if (!selector || !effect) continue;
       try {
         if (element.closest?.(selector.trim())) {
           debug.log('Ancestor mapping match:', selector, '-> Effect', effect, 'Override:', overrideEnabled);
-          return {
-            effectNumber: parseInt(effect),
-            overrideEnabled: overrideEnabled === true,
-            settings: overrideEnabled ? settings : null
-          };
+          return { effectNumber: parseInt(effect), overrideEnabled: overrideEnabled === true, settings: overrideEnabled ? settings : null };
         }
-      } catch (e) {
-        debug.warn('Invalid selector in mapping:', selector, e);
-      }
+      } catch (e) { debug.warn('Invalid selector in mapping:', selector, e); }
     }
-    
-    // Priority 3: Global default
     return null;
   }
 
-  // Function to create ScrollTriggers for each content block
+  // Function to create ScrollTriggers
   function createScrollTriggers() {
     debug.group('ScrollTrigger Creation');
     debug.log('Creating ScrollTriggers for', contentBlocks.length, 'content block(s)');
     
-    // Kill existing triggers
     if (scrollTriggerInstances.length > 0) {
       debug.log('Killing', scrollTriggerInstances.length, 'existing trigger(s)');
       scrollTriggerInstances.forEach(instance => instance.kill());
     }
     scrollTriggerInstances = [];
-    
-    // Reset tracking when recreating triggers
     currentActiveEffect = null;
     activeTriggersMap.clear();
     
     if (contentBlocks.length === 0) {
-      console.warn('Context-Aware Animation: No content blocks found.');
+      console.warn(`Context-Aware Animation [${instanceId}]: No content blocks found.`);
       debug.warn('No content blocks found - cannot create ScrollTriggers');
       debug.groupEnd();
       return;
     }
     
-    // Calculate logo offset once globally for all triggers
     const elementOffsetTop = getElementTopOffset(logoElement);
     
-    // Pre-build effects for each content block and cache them
     const blockEffects = contentBlocks.map((block, index) => {
       const mappedResult = getEffectForElement(block);
-      
-      // Determine effect number and override settings
       let effectNumber, overrideSettings;
       if (mappedResult !== null) {
         effectNumber = mappedResult.effectNumber;
@@ -812,87 +655,44 @@ const defaultAnimationProps = {
         effectNumber = selectedEffect;
         overrideSettings = null;
       }
-      
       const effect = buildEffect(effectNumber, overrideSettings);
-      
-      debug.log(`Block ${index + 1} effect:`, {
-        block,
-        mappedResult,
-        usedEffect: effectNumber,
-        hasOverride: overrideSettings !== null,
-        isDefault: mappedResult === null
-      });
-      
-      return {
-        block,
-        effect,
-        effectNumber,
-        overrideSettings
-      };
+      debug.log(`Block ${index + 1} effect:`, { block, mappedResult, usedEffect: effectNumber, hasOverride: overrideSettings !== null, isDefault: mappedResult === null });
+      return { block, effect, effectNumber, overrideSettings };
     });
     
     blockEffects.forEach(({ block, effect, effectNumber }, index) => {
-      if (!effect) {
-        debug.warn(`Skipping block ${index + 1} - invalid effect`);
-        return;
-      }
+      if (!effect) { debug.warn(`Skipping block ${index + 1} - invalid effect`); return; }
       
-      const startOffset = elementOffsetTop + effect.offsetStartAmount + globalOffset;
-      const endOffset = elementOffsetTop - effect.offsetEndAmount + globalOffset;
-
-      debug.log(`Creating ScrollTrigger ${index + 1}/${contentBlocks.length}`, {
-        block,
-        effectNumber,
-        logoOffsetTop: elementOffsetTop,
-        globalOffset,
-        start: `top ${startOffset}px`,
-        end: `bottom ${endOffset}px`
-      });
-
-      const triggerId = `trigger_${index}`;
+      const triggerId = `${instanceId}_trigger_${index}`;
+      debug.log(`Creating ScrollTrigger ${index + 1}/${contentBlocks.length}`, { block, effectNumber, logoOffsetTop: elementOffsetTop, globalOffset });
 
       const trigger = ScrollTrigger.create({
         trigger: block,
         start: () => `top ${elementOffsetTop + effect.offsetStartAmount + globalOffset}px`,
         end: () => `bottom ${elementOffsetTop - effect.offsetEndAmount + globalOffset}px`,
-
         onEnter: () => {
           debug.log('ScrollTrigger: onEnter', block, 'Effect:', effectNumber);
-          
-          // Track this trigger as active
           activeTriggersMap.set(triggerId, { effect, effectNumber });
-          
-          // If no effect is currently active, or if we're switching to a different effect
           if (currentActiveEffect === null) {
             debug.log('First trigger activated, calling effect.onEnter');
             currentActiveEffect = effectNumber;
             effect.onEnter(logoElement);
           } else if (currentActiveEffect !== effectNumber) {
-            // Different effect - transition: leave current, enter new
             debug.log('Switching effect from', currentActiveEffect, 'to', effectNumber);
             const previousEffect = buildEffect(currentActiveEffect, null);
-            if (previousEffect) {
-              previousEffect.onLeave(logoElement);
-            }
+            if (previousEffect) { previousEffect.onLeave(logoElement); }
             currentActiveEffect = effectNumber;
-            setTimeout(() => effect.onEnter(logoElement), 50); // Small delay for smooth transition
-          } else {
-            debug.log('Same effect already active, skipping onEnter');
-          }
+            setTimeout(() => effect.onEnter(logoElement), 50);
+          } else { debug.log('Same effect already active, skipping onEnter'); }
         },
         onLeaveBack: () => {
           debug.log('ScrollTrigger: onLeaveBack', block, 'Effect:', effectNumber);
-          
-          // Remove this trigger from active map
           activeTriggersMap.delete(triggerId);
-          
-          // Check if any triggers are still active
           if (activeTriggersMap.size === 0) {
             debug.log('Last trigger deactivated, calling effect.onLeave');
             effect.onLeave(logoElement);
             currentActiveEffect = null;
           } else {
-            // Find the highest priority remaining active trigger
             const remainingTriggers = Array.from(activeTriggersMap.values());
             const nextEffect = remainingTriggers[remainingTriggers.length - 1];
             if (nextEffect && nextEffect.effectNumber !== currentActiveEffect) {
@@ -905,17 +705,12 @@ const defaultAnimationProps = {
         },
         onLeave: () => {
           debug.log('ScrollTrigger: onLeave', block, 'Effect:', effectNumber);
-          
-          // Remove this trigger from active map
           activeTriggersMap.delete(triggerId);
-          
-          // Check if any triggers are still active
           if (activeTriggersMap.size === 0) {
             debug.log('Last trigger deactivated, calling effect.onLeave');
             effect.onLeave(logoElement);
             currentActiveEffect = null;
           } else {
-            // Find the next active trigger
             const remainingTriggers = Array.from(activeTriggersMap.values());
             const nextEffect = remainingTriggers[remainingTriggers.length - 1];
             if (nextEffect && nextEffect.effectNumber !== currentActiveEffect) {
@@ -928,27 +723,18 @@ const defaultAnimationProps = {
         },
         onEnterBack: () => {
           debug.log('ScrollTrigger: onEnterBack', block, 'Effect:', effectNumber);
-          
-          // Track this trigger as active
           activeTriggersMap.set(triggerId, { effect, effectNumber });
-          
-          // If no effect is currently active, or if we're switching to a different effect
           if (currentActiveEffect === null) {
             debug.log('First trigger activated, calling effect.onEnter');
             currentActiveEffect = effectNumber;
             effect.onEnter(logoElement);
           } else if (currentActiveEffect !== effectNumber) {
-            // Different effect - transition
             debug.log('Switching effect from', currentActiveEffect, 'to', effectNumber);
             const previousEffect = buildEffect(currentActiveEffect, null);
-            if (previousEffect) {
-              previousEffect.onLeave(logoElement);
-            }
+            if (previousEffect) { previousEffect.onLeave(logoElement); }
             currentActiveEffect = effectNumber;
             setTimeout(() => effect.onEnter(logoElement), 50);
-          } else {
-            debug.log('Same effect already active, skipping onEnter');
-          }
+          } else { debug.log('Same effect already active, skipping onEnter'); }
         }
       });
       
@@ -960,19 +746,71 @@ const defaultAnimationProps = {
     debug.groupEnd();
   }
 
-  // Wait until the page is fully loaded to create the ScrollTriggers
-  window.addEventListener('load', () => {
-    debug.log('Page loaded, creating ScrollTriggers');
-    createScrollTriggers();
-  });
+  debug.log('Instance setup complete, event listeners will be registered globally');
 
-  // Update position dynamically on resize
-  window.addEventListener('resize', () => {
-    debug.log('Window resized, refreshing ScrollTrigger');
-    ScrollTrigger.refresh();
+  // Return the instance controller
+  return {
+    instanceId,
+    logoSelector,
+    createScrollTriggers,
+    scrollTriggerInstances
+  };
+}
+
+// Main execution wrapped in IIFE
+(function() {
+  // Get settings from WordPress
+  const globalSettings = typeof caaSettings !== 'undefined' ? caaSettings : {};
+  
+  // Global mobile disable settings
+  const disableMobile = globalSettings.disableMobile === '1';
+  const mobileBreakpoint = parseInt(globalSettings.mobileBreakpoint) || 768;
+  
+  // Check if effects should be disabled on mobile
+  if (disableMobile && window.innerWidth < mobileBreakpoint) {
+    console.log('[CAA] Effects disabled on mobile - viewport width:', window.innerWidth, '< breakpoint:', mobileBreakpoint);
+    return;
+  }
+  
+  // Get instances array
+  const instances = Array.isArray(globalSettings.instances) ? globalSettings.instances : [];
+  
+  if (instances.length === 0) {
+    console.warn('Context-Aware Animation: No instances configured.');
+    return;
+  }
+  
+  console.log(`[CAA] Initializing ${instances.length} instance(s)`);
+  
+  // Initialize all instances
+  const activeInstances = [];
+  
+  instances.forEach((instanceSettings, index) => {
+    console.log(`[CAA] Initializing instance ${index + 1}:`, instanceSettings.logoId || `Instance ${instanceSettings.instanceId}`);
+    const instanceController = initInstance(instanceSettings, globalSettings);
+    if (instanceController) {
+      activeInstances.push(instanceController);
+    }
   });
   
-  debug.log('Event listeners registered');
+  if (activeInstances.length === 0) {
+    console.warn('Context-Aware Animation: No valid instances initialized.');
+    return;
+  }
+  
+  console.log(`[CAA] ${activeInstances.length} instance(s) initialized successfully`);
+  
+  // Wait until the page is fully loaded to create the ScrollTriggers for all instances
+  window.addEventListener('load', () => {
+    console.log('[CAA] Page loaded, creating ScrollTriggers for all instances');
+    activeInstances.forEach(instance => {
+      instance.createScrollTriggers();
+    });
+  });
+
+  // Update position dynamically on resize (once for all instances)
+  window.addEventListener('resize', () => {
+    ScrollTrigger.refresh();
+  });
 
 })(); // End of IIFE
-

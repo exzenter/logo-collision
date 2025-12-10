@@ -183,6 +183,193 @@ if (isset($_POST['caa_save_filtering']) && check_admin_referer('caa_pro_filterin
     echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__('Filtering settings saved.', 'logo-collision') . '</p></div>';
 }
 
+// Handle Instance form submissions
+$plugin_instance = Context_Aware_Animation::get_instance();
+
+// Handle Instance Delete
+if (isset($_POST['caa_delete_instance']) && check_admin_referer('caa_instance_nonce')) {
+    $instance_id = isset($_POST['caa_instance_id']) ? absint($_POST['caa_instance_id']) : 0;
+    if ($instance_id > 0) {
+        $plugin_instance->delete_instance($instance_id);
+        echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__('Instance deleted.', 'logo-collision') . '</p></div>';
+    }
+}
+
+// Handle Instance Save (Create/Update)
+if (isset($_POST['caa_save_instance']) && check_admin_referer('caa_instance_nonce')) {
+    $instance_id = isset($_POST['caa_instance_id']) ? absint($_POST['caa_instance_id']) : 0;
+    $is_new = ($instance_id === 0);
+    
+    // Check max instances for new instances
+    if ($is_new) {
+        $instances = $plugin_instance->get_all_instances();
+        if (count($instances) >= CAA_MAX_INSTANCES) {
+            echo '<div class="notice notice-error is-dismissible"><p>' . sprintf(esc_html__('Maximum of %d instances reached.', 'logo-collision'), CAA_MAX_INSTANCES) . '</p></div>';
+        } else {
+            $instance_id = $plugin_instance->get_next_instance_id();
+        }
+    }
+    
+    if ($instance_id > 0) {
+        // Build instance data from POST
+        $instance_data = array(
+            'enabled' => isset($_POST['caa_instance_enabled']),
+            'logo_id' => isset($_POST['caa_instance_logo_id']) ? sanitize_text_field(wp_unslash($_POST['caa_instance_logo_id'])) : '',
+            'selected_effect' => isset($_POST['caa_instance_effect']) ? caa_sanitize_effect(sanitize_text_field(wp_unslash($_POST['caa_instance_effect']))) : '1',
+            'included_elements' => isset($_POST['caa_instance_included']) ? sanitize_textarea_field(wp_unslash($_POST['caa_instance_included'])) : '',
+            'excluded_elements' => isset($_POST['caa_instance_excluded']) ? sanitize_textarea_field(wp_unslash($_POST['caa_instance_excluded'])) : '',
+            'global_offset' => isset($_POST['caa_instance_global_offset']) ? caa_sanitize_offset(sanitize_text_field(wp_unslash($_POST['caa_instance_global_offset']))) : '0',
+            'debug_mode' => isset($_POST['caa_instance_debug']) ? '1' : '0',
+            'duration' => isset($_POST['caa_instance_duration']) ? caa_sanitize_float(sanitize_text_field(wp_unslash($_POST['caa_instance_duration']))) : '0.6',
+            'ease' => isset($_POST['caa_instance_ease']) ? caa_sanitize_ease(sanitize_text_field(wp_unslash($_POST['caa_instance_ease']))) : 'power4',
+            'offset_start' => isset($_POST['caa_instance_offset_start']) ? caa_sanitize_offset(sanitize_text_field(wp_unslash($_POST['caa_instance_offset_start']))) : '30',
+            'offset_end' => isset($_POST['caa_instance_offset_end']) ? caa_sanitize_offset(sanitize_text_field(wp_unslash($_POST['caa_instance_offset_end']))) : '10',
+            // Effect settings
+            'effect1_scale_down' => isset($_POST['caa_instance_effect1_scale_down']) ? caa_sanitize_float(sanitize_text_field(wp_unslash($_POST['caa_instance_effect1_scale_down']))) : '0',
+            'effect1_origin_x' => isset($_POST['caa_instance_effect1_origin_x']) ? caa_sanitize_percent(sanitize_text_field(wp_unslash($_POST['caa_instance_effect1_origin_x']))) : '0',
+            'effect1_origin_y' => isset($_POST['caa_instance_effect1_origin_y']) ? caa_sanitize_percent(sanitize_text_field(wp_unslash($_POST['caa_instance_effect1_origin_y']))) : '50',
+            'effect2_blur_amount' => isset($_POST['caa_instance_effect2_blur_amount']) ? caa_sanitize_float(sanitize_text_field(wp_unslash($_POST['caa_instance_effect2_blur_amount']))) : '5',
+            'effect2_blur_scale' => isset($_POST['caa_instance_effect2_blur_scale']) ? caa_sanitize_float(sanitize_text_field(wp_unslash($_POST['caa_instance_effect2_blur_scale']))) : '0.9',
+            'effect2_blur_duration' => isset($_POST['caa_instance_effect2_blur_duration']) ? caa_sanitize_float(sanitize_text_field(wp_unslash($_POST['caa_instance_effect2_blur_duration']))) : '0.2',
+            'effect4_text_x_range' => isset($_POST['caa_instance_effect4_text_x_range']) ? caa_sanitize_offset(sanitize_text_field(wp_unslash($_POST['caa_instance_effect4_text_x_range']))) : '50',
+            'effect4_text_y_range' => isset($_POST['caa_instance_effect4_text_y_range']) ? caa_sanitize_offset(sanitize_text_field(wp_unslash($_POST['caa_instance_effect4_text_y_range']))) : '40',
+            'effect4_stagger_amount' => isset($_POST['caa_instance_effect4_stagger_amount']) ? caa_sanitize_float(sanitize_text_field(wp_unslash($_POST['caa_instance_effect4_stagger_amount']))) : '0.03',
+            'effect5_shuffle_iterations' => isset($_POST['caa_instance_effect5_shuffle_iterations']) ? caa_sanitize_offset(sanitize_text_field(wp_unslash($_POST['caa_instance_effect5_shuffle_iterations']))) : '2',
+            'effect5_shuffle_duration' => isset($_POST['caa_instance_effect5_shuffle_duration']) ? caa_sanitize_float(sanitize_text_field(wp_unslash($_POST['caa_instance_effect5_shuffle_duration']))) : '0.03',
+            'effect5_char_delay' => isset($_POST['caa_instance_effect5_char_delay']) ? caa_sanitize_float(sanitize_text_field(wp_unslash($_POST['caa_instance_effect5_char_delay']))) : '0.03',
+            'effect6_rotation' => isset($_POST['caa_instance_effect6_rotation']) ? caa_sanitize_offset(sanitize_text_field(wp_unslash($_POST['caa_instance_effect6_rotation']))) : '-90',
+            'effect6_x_percent' => isset($_POST['caa_instance_effect6_x_percent']) ? caa_sanitize_offset(sanitize_text_field(wp_unslash($_POST['caa_instance_effect6_x_percent']))) : '-5',
+            'effect6_origin_x' => isset($_POST['caa_instance_effect6_origin_x']) ? caa_sanitize_percent(sanitize_text_field(wp_unslash($_POST['caa_instance_effect6_origin_x']))) : '0',
+            'effect6_origin_y' => isset($_POST['caa_instance_effect6_origin_y']) ? caa_sanitize_percent(sanitize_text_field(wp_unslash($_POST['caa_instance_effect6_origin_y']))) : '100',
+            'effect7_move_distance' => isset($_POST['caa_instance_effect7_move_distance']) ? caa_sanitize_move_away(sanitize_text_field(wp_unslash($_POST['caa_instance_effect7_move_distance']))) : '',
+            // Pro features per instance - effect mappings
+            'effect_mappings' => array(),
+            // Filtering settings
+            'enable_filtering' => isset($_POST['caa_instance_enable_filtering']) ? '1' : '0',
+            'filter_mode' => isset($_POST['caa_instance_filter_mode']) ? sanitize_text_field(wp_unslash($_POST['caa_instance_filter_mode'])) : 'include',
+            'selected_post_types' => array(),
+            'include_pages' => isset($_POST['caa_instance_include_pages']) ? '1' : '0',
+            'include_posts' => isset($_POST['caa_instance_include_posts']) ? '1' : '0',
+            'selected_items' => array(),
+        );
+        
+        // Handle effect mappings for this instance
+        if (isset($_POST['caa_instance_mappings']) && is_array($_POST['caa_instance_mappings'])) {
+            // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Sanitization occurs below
+            $inst_mappings = wp_unslash($_POST['caa_instance_mappings']);
+            foreach ($inst_mappings as $mapping) {
+                $selector = isset($mapping['selector']) ? sanitize_text_field($mapping['selector']) : '';
+                if (!empty($selector)) {
+                    $effect = isset($mapping['effect']) ? caa_sanitize_effect(sanitize_text_field($mapping['effect'])) : '1';
+                    $override_enabled = isset($mapping['override_enabled']) && $mapping['override_enabled'] === '1';
+                    
+                    $mapping_data = array(
+                        'selector' => $selector,
+                        'effect' => $effect,
+                        'override_enabled' => $override_enabled
+                    );
+                    
+                    if ($override_enabled && isset($mapping['settings']) && is_array($mapping['settings'])) {
+                        $settings = $mapping['settings'];
+                        $mapping_data['settings'] = array(
+                            'duration' => isset($settings['duration']) ? caa_sanitize_float(sanitize_text_field($settings['duration'])) : '0.6',
+                            'ease' => isset($settings['ease']) ? caa_sanitize_ease(sanitize_text_field($settings['ease'])) : 'power4',
+                            'offset_start' => isset($settings['offset_start']) ? caa_sanitize_offset(sanitize_text_field($settings['offset_start'])) : '30',
+                            'offset_end' => isset($settings['offset_end']) ? caa_sanitize_offset(sanitize_text_field($settings['offset_end'])) : '10',
+                        );
+                        
+                        // Effect-specific settings
+                        switch ($effect) {
+                            case '1':
+                                $mapping_data['settings']['effect1_scale_down'] = isset($settings['effect1_scale_down']) ? caa_sanitize_float(sanitize_text_field($settings['effect1_scale_down'])) : '0';
+                                $mapping_data['settings']['effect1_origin_x'] = isset($settings['effect1_origin_x']) ? caa_sanitize_percent(sanitize_text_field($settings['effect1_origin_x'])) : '0';
+                                $mapping_data['settings']['effect1_origin_y'] = isset($settings['effect1_origin_y']) ? caa_sanitize_percent(sanitize_text_field($settings['effect1_origin_y'])) : '50';
+                                break;
+                            case '2':
+                                $mapping_data['settings']['effect2_blur_amount'] = isset($settings['effect2_blur_amount']) ? caa_sanitize_float(sanitize_text_field($settings['effect2_blur_amount'])) : '5';
+                                $mapping_data['settings']['effect2_blur_scale'] = isset($settings['effect2_blur_scale']) ? caa_sanitize_float(sanitize_text_field($settings['effect2_blur_scale'])) : '0.9';
+                                $mapping_data['settings']['effect2_blur_duration'] = isset($settings['effect2_blur_duration']) ? caa_sanitize_float(sanitize_text_field($settings['effect2_blur_duration'])) : '0.2';
+                                break;
+                            case '4':
+                                $mapping_data['settings']['effect4_text_x_range'] = isset($settings['effect4_text_x_range']) ? caa_sanitize_offset(sanitize_text_field($settings['effect4_text_x_range'])) : '50';
+                                $mapping_data['settings']['effect4_text_y_range'] = isset($settings['effect4_text_y_range']) ? caa_sanitize_offset(sanitize_text_field($settings['effect4_text_y_range'])) : '40';
+                                $mapping_data['settings']['effect4_stagger_amount'] = isset($settings['effect4_stagger_amount']) ? caa_sanitize_float(sanitize_text_field($settings['effect4_stagger_amount'])) : '0.03';
+                                break;
+                            case '5':
+                                $mapping_data['settings']['effect5_shuffle_iterations'] = isset($settings['effect5_shuffle_iterations']) ? caa_sanitize_offset(sanitize_text_field($settings['effect5_shuffle_iterations'])) : '2';
+                                $mapping_data['settings']['effect5_shuffle_duration'] = isset($settings['effect5_shuffle_duration']) ? caa_sanitize_float(sanitize_text_field($settings['effect5_shuffle_duration'])) : '0.03';
+                                $mapping_data['settings']['effect5_char_delay'] = isset($settings['effect5_char_delay']) ? caa_sanitize_float(sanitize_text_field($settings['effect5_char_delay'])) : '0.03';
+                                break;
+                            case '6':
+                                $mapping_data['settings']['effect6_rotation'] = isset($settings['effect6_rotation']) ? caa_sanitize_offset(sanitize_text_field($settings['effect6_rotation'])) : '-90';
+                                $mapping_data['settings']['effect6_x_percent'] = isset($settings['effect6_x_percent']) ? caa_sanitize_offset(sanitize_text_field($settings['effect6_x_percent'])) : '-5';
+                                $mapping_data['settings']['effect6_origin_x'] = isset($settings['effect6_origin_x']) ? caa_sanitize_percent(sanitize_text_field($settings['effect6_origin_x'])) : '0';
+                                $mapping_data['settings']['effect6_origin_y'] = isset($settings['effect6_origin_y']) ? caa_sanitize_percent(sanitize_text_field($settings['effect6_origin_y'])) : '100';
+                                break;
+                            case '7':
+                                $mapping_data['settings']['effect7_move_distance'] = isset($settings['effect7_move_distance']) ? caa_sanitize_move_away(sanitize_text_field($settings['effect7_move_distance'])) : '';
+                                break;
+                        }
+                    }
+                    
+                    $instance_data['effect_mappings'][] = $mapping_data;
+                }
+            }
+        }
+        
+        // Handle selected post types for filtering
+        if (isset($_POST['caa_instance_post_types']) && is_array($_POST['caa_instance_post_types'])) {
+            $valid_post_types = array_keys(get_post_types(array('public' => true), 'names'));
+            // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+            $inst_post_types = wp_unslash($_POST['caa_instance_post_types']);
+            foreach ($inst_post_types as $post_type) {
+                $post_type = sanitize_text_field($post_type);
+                if (in_array($post_type, $valid_post_types, true)) {
+                    $instance_data['selected_post_types'][] = $post_type;
+                }
+            }
+        }
+        
+        // Handle selected items for filtering
+        if (isset($_POST['caa_instance_selected_items']) && is_array($_POST['caa_instance_selected_items'])) {
+            // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+            $inst_items = wp_unslash($_POST['caa_instance_selected_items']);
+            foreach ($inst_items as $item_id) {
+                $item_id = absint($item_id);
+                if ($item_id > 0) {
+                    $instance_data['selected_items'][] = $item_id;
+                }
+            }
+            $instance_data['selected_items'] = array_unique($instance_data['selected_items']);
+        }
+        
+        $plugin_instance->save_instance($instance_id, $instance_data);
+        
+        $message = $is_new ? __('Instance created.', 'logo-collision') : __('Instance saved.', 'logo-collision');
+        echo '<div class="notice notice-success is-dismissible"><p>' . esc_html($message) . '</p></div>';
+    }
+}
+
+// Get instances data
+$all_instances = $plugin_instance->get_all_instances();
+$instance_count = count($all_instances);
+$can_add_instance = $instance_count < CAA_MAX_INSTANCES;
+
+// Check for edit mode
+$editing_instance_id = 0;
+$editing_instance = null;
+if (isset($_GET['edit_instance'])) {
+    $editing_instance_id = absint($_GET['edit_instance']);
+    if ($editing_instance_id === 0) {
+        // Creating new instance - use defaults with a generated name
+        $next_id = $plugin_instance->get_next_instance_id();
+        $editing_instance = $plugin_instance->get_default_instance_data();
+        $editing_instance['logo_id'] = sprintf('instance-%d', $next_id);
+    } else {
+        $editing_instance = $plugin_instance->get_logo_instance($editing_instance_id);
+    }
+}
+
 // Handle General Settings form submission
 if (isset($_POST['caa_save_settings']) && check_admin_referer('caa_settings_nonce')) {
     // Core settings with isset() checks and proper sanitization
@@ -1079,7 +1266,10 @@ wp_localize_script('caa-admin', 'caaAdmin', array(
     <div id="pro-version" class="caa-tab-content">
         <!-- Sub-tab Navigation -->
         <nav class="nav-tab-wrapper caa-sub-tabs">
-            <a href="#pro-mappings" class="nav-tab nav-tab-active" data-subtab="pro-mappings">
+            <a href="#pro-instances" class="nav-tab nav-tab-active" data-subtab="pro-instances">
+                <?php esc_html_e('Instances', 'logo-collision'); ?>
+            </a>
+            <a href="#pro-mappings" class="nav-tab" data-subtab="pro-mappings">
                 <?php esc_html_e('Element Mappings', 'logo-collision'); ?>
             </a>
             <a href="#pro-filtering" class="nav-tab" data-subtab="pro-filtering">
@@ -1087,8 +1277,407 @@ wp_localize_script('caa-admin', 'caaAdmin', array(
             </a>
         </nav>
         
+        <!-- Instances Sub-tab -->
+        <div id="pro-instances" class="caa-sub-tab-content caa-sub-tab-active">
+            <?php if ($editing_instance !== null) : ?>
+                <!-- Instance Editor -->
+                <form method="post" action="" class="caa-instance-editor">
+                    <?php wp_nonce_field('caa_instance_nonce'); ?>
+                    <input type="hidden" name="caa_instance_id" value="<?php echo esc_attr($editing_instance_id); ?>" />
+                    
+                    <div class="caa-pro-header">
+                        <h2>
+                            <?php 
+                            if ($editing_instance_id > 0) {
+                                printf(esc_html__('Edit Instance: %s', 'logo-collision'), esc_html($plugin_instance->get_instance_name($editing_instance_id, $editing_instance)));
+                            } else {
+                                esc_html_e('Create New Instance', 'logo-collision');
+                            }
+                            ?>
+                        </h2>
+                        <p class="description">
+                            <?php esc_html_e('Configure this instance with its own logo, effects, and settings.', 'logo-collision'); ?>
+                        </p>
+                        <a href="<?php echo esc_url(admin_url('options-general.php?page=logo-collision#pro-instances')); ?>" class="button">
+                            &larr; <?php esc_html_e('Back to Instances', 'logo-collision'); ?>
+                        </a>
+                    </div>
+                    
+                    <table class="form-table" role="presentation">
+                        <tbody>
+                            <tr>
+                                <th scope="row">
+                                    <label for="caa_instance_enabled"><?php esc_html_e('Enabled', 'logo-collision'); ?></label>
+                                </th>
+                                <td>
+                                    <label>
+                                        <input type="checkbox" id="caa_instance_enabled" name="caa_instance_enabled" value="1" <?php checked(!empty($editing_instance['enabled'])); ?> />
+                                        <?php esc_html_e('Enable this instance', 'logo-collision'); ?>
+                                    </label>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">
+                                    <label for="caa_instance_logo_id"><?php esc_html_e('Logo Selector', 'logo-collision'); ?></label>
+                                </th>
+                                <td>
+                                    <input type="text" id="caa_instance_logo_id" name="caa_instance_logo_id" value="<?php echo esc_attr($editing_instance['logo_id']); ?>" class="regular-text" placeholder="#site-logo or .logo" />
+                                    <p class="description"><?php esc_html_e('CSS selector for the element to animate (e.g., #site-logo, .custom-logo).', 'logo-collision'); ?></p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">
+                                    <label><?php esc_html_e('Default Effect', 'logo-collision'); ?></label>
+                                </th>
+                                <td>
+                                    <?php
+                                    $inst_effect = isset($editing_instance['selected_effect']) ? $editing_instance['selected_effect'] : '1';
+                                    ?>
+                                    <fieldset>
+                                        <label><input type="radio" name="caa_instance_effect" value="1" <?php checked($inst_effect, '1'); ?> class="caa-instance-effect-radio" /> <?php esc_html_e('Effect 1: Scale', 'logo-collision'); ?></label><br>
+                                        <label><input type="radio" name="caa_instance_effect" value="2" <?php checked($inst_effect, '2'); ?> class="caa-instance-effect-radio" /> <?php esc_html_e('Effect 2: Blur', 'logo-collision'); ?></label><br>
+                                        <label><input type="radio" name="caa_instance_effect" value="3" <?php checked($inst_effect, '3'); ?> class="caa-instance-effect-radio" /> <?php esc_html_e('Effect 3: Slide Text', 'logo-collision'); ?></label><br>
+                                        <label><input type="radio" name="caa_instance_effect" value="4" <?php checked($inst_effect, '4'); ?> class="caa-instance-effect-radio" /> <?php esc_html_e('Effect 4: Text Split', 'logo-collision'); ?></label><br>
+                                        <label><input type="radio" name="caa_instance_effect" value="5" <?php checked($inst_effect, '5'); ?> class="caa-instance-effect-radio" /> <?php esc_html_e('Effect 5: Character Shuffle', 'logo-collision'); ?></label><br>
+                                        <label><input type="radio" name="caa_instance_effect" value="6" <?php checked($inst_effect, '6'); ?> class="caa-instance-effect-radio" /> <?php esc_html_e('Effect 6: Rotation', 'logo-collision'); ?></label><br>
+                                        <label><input type="radio" name="caa_instance_effect" value="7" <?php checked($inst_effect, '7'); ?> class="caa-instance-effect-radio" /> <?php esc_html_e('Effect 7: Move Away', 'logo-collision'); ?></label>
+                                    </fieldset>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">
+                                    <label for="caa_instance_included"><?php esc_html_e('Include Elements', 'logo-collision'); ?></label>
+                                </th>
+                                <td>
+                                    <textarea id="caa_instance_included" name="caa_instance_included" class="large-text" rows="2" placeholder=".content-section, .hero-section"><?php echo esc_textarea($editing_instance['included_elements']); ?></textarea>
+                                    <p class="description"><?php esc_html_e('Comma-separated CSS selectors for elements that should trigger the animation.', 'logo-collision'); ?></p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">
+                                    <label for="caa_instance_excluded"><?php esc_html_e('Exclude Elements', 'logo-collision'); ?></label>
+                                </th>
+                                <td>
+                                    <textarea id="caa_instance_excluded" name="caa_instance_excluded" class="large-text" rows="2" placeholder=".no-animation, .skip-collision"><?php echo esc_textarea($editing_instance['excluded_elements']); ?></textarea>
+                                    <p class="description"><?php esc_html_e('Comma-separated CSS selectors for elements to exclude from triggering.', 'logo-collision'); ?></p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <h3><?php esc_html_e('Animation Settings', 'logo-collision'); ?></h3>
+                    <table class="form-table" role="presentation">
+                        <tbody>
+                            <tr>
+                                <th scope="row"><label for="caa_instance_duration"><?php esc_html_e('Duration', 'logo-collision'); ?></label></th>
+                                <td>
+                                    <input type="number" id="caa_instance_duration" name="caa_instance_duration" value="<?php echo esc_attr($editing_instance['duration']); ?>" min="0.1" max="3" step="0.1" class="small-text" /> s
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><label for="caa_instance_ease"><?php esc_html_e('Easing', 'logo-collision'); ?></label></th>
+                                <td>
+                                    <select id="caa_instance_ease" name="caa_instance_ease">
+                                        <?php
+                                        $eases = array('power1', 'power2', 'power3', 'power4', 'expo', 'sine', 'back', 'elastic', 'bounce', 'none');
+                                        foreach ($eases as $e) {
+                                            printf('<option value="%s" %s>%s</option>', esc_attr($e), selected($editing_instance['ease'], $e, false), esc_html(ucfirst($e)));
+                                        }
+                                        ?>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><label for="caa_instance_offset_start"><?php esc_html_e('Start Offset', 'logo-collision'); ?></label></th>
+                                <td>
+                                    <input type="number" id="caa_instance_offset_start" name="caa_instance_offset_start" value="<?php echo esc_attr($editing_instance['offset_start']); ?>" step="1" class="small-text" /> px
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><label for="caa_instance_offset_end"><?php esc_html_e('End Offset', 'logo-collision'); ?></label></th>
+                                <td>
+                                    <input type="number" id="caa_instance_offset_end" name="caa_instance_offset_end" value="<?php echo esc_attr($editing_instance['offset_end']); ?>" step="1" class="small-text" /> px
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><label for="caa_instance_global_offset"><?php esc_html_e('Global Offset', 'logo-collision'); ?></label></th>
+                                <td>
+                                    <input type="number" id="caa_instance_global_offset" name="caa_instance_global_offset" value="<?php echo esc_attr($editing_instance['global_offset']); ?>" step="1" class="small-text" /> px
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <!-- Effect-specific settings accordions -->
+                    <div class="caa-instance-effect-accordion" data-effect="1" <?php echo $inst_effect === '1' ? 'style="display:block;"' : ''; ?>>
+                        <h3><?php esc_html_e('Effect 1: Scale Settings', 'logo-collision'); ?></h3>
+                        <table class="form-table" role="presentation">
+                            <tbody>
+                                <tr>
+                                    <th scope="row"><label><?php esc_html_e('Scale Down', 'logo-collision'); ?></label></th>
+                                    <td><input type="number" name="caa_instance_effect1_scale_down" value="<?php echo esc_attr($editing_instance['effect1_scale_down']); ?>" min="0" max="1" step="0.1" class="small-text" /></td>
+                                </tr>
+                                <tr>
+                                    <th scope="row"><label><?php esc_html_e('Transform Origin', 'logo-collision'); ?></label></th>
+                                    <td>
+                                        X: <input type="number" name="caa_instance_effect1_origin_x" value="<?php echo esc_attr($editing_instance['effect1_origin_x']); ?>" min="0" max="100" step="5" class="small-text" />%
+                                        Y: <input type="number" name="caa_instance_effect1_origin_y" value="<?php echo esc_attr($editing_instance['effect1_origin_y']); ?>" min="0" max="100" step="5" class="small-text" />%
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="caa-instance-effect-accordion" data-effect="2" <?php echo $inst_effect === '2' ? 'style="display:block;"' : ''; ?>>
+                        <h3><?php esc_html_e('Effect 2: Blur Settings', 'logo-collision'); ?></h3>
+                        <table class="form-table" role="presentation">
+                            <tbody>
+                                <tr>
+                                    <th scope="row"><label><?php esc_html_e('Blur Amount', 'logo-collision'); ?></label></th>
+                                    <td><input type="number" name="caa_instance_effect2_blur_amount" value="<?php echo esc_attr($editing_instance['effect2_blur_amount']); ?>" min="0" max="20" step="0.5" class="small-text" /> px</td>
+                                </tr>
+                                <tr>
+                                    <th scope="row"><label><?php esc_html_e('Blur Scale', 'logo-collision'); ?></label></th>
+                                    <td><input type="number" name="caa_instance_effect2_blur_scale" value="<?php echo esc_attr($editing_instance['effect2_blur_scale']); ?>" min="0.5" max="1" step="0.05" class="small-text" /></td>
+                                </tr>
+                                <tr>
+                                    <th scope="row"><label><?php esc_html_e('Blur Duration', 'logo-collision'); ?></label></th>
+                                    <td><input type="number" name="caa_instance_effect2_blur_duration" value="<?php echo esc_attr($editing_instance['effect2_blur_duration']); ?>" min="0.1" max="1" step="0.1" class="small-text" /> s</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="caa-instance-effect-accordion" data-effect="3" <?php echo $inst_effect === '3' ? 'style="display:block;"' : ''; ?>>
+                        <h3><?php esc_html_e('Effect 3: Slide Text', 'logo-collision'); ?></h3>
+                        <p class="description"><?php esc_html_e('This effect uses only the global animation settings above.', 'logo-collision'); ?></p>
+                    </div>
+                    
+                    <div class="caa-instance-effect-accordion" data-effect="4" <?php echo $inst_effect === '4' ? 'style="display:block;"' : ''; ?>>
+                        <h3><?php esc_html_e('Effect 4: Text Split Settings', 'logo-collision'); ?></h3>
+                        <table class="form-table" role="presentation">
+                            <tbody>
+                                <tr>
+                                    <th scope="row"><label><?php esc_html_e('X Range', 'logo-collision'); ?></label></th>
+                                    <td><input type="number" name="caa_instance_effect4_text_x_range" value="<?php echo esc_attr($editing_instance['effect4_text_x_range']); ?>" min="0" max="200" step="5" class="small-text" /> px</td>
+                                </tr>
+                                <tr>
+                                    <th scope="row"><label><?php esc_html_e('Y Range', 'logo-collision'); ?></label></th>
+                                    <td><input type="number" name="caa_instance_effect4_text_y_range" value="<?php echo esc_attr($editing_instance['effect4_text_y_range']); ?>" min="0" max="200" step="5" class="small-text" /> px</td>
+                                </tr>
+                                <tr>
+                                    <th scope="row"><label><?php esc_html_e('Stagger', 'logo-collision'); ?></label></th>
+                                    <td><input type="number" name="caa_instance_effect4_stagger_amount" value="<?php echo esc_attr($editing_instance['effect4_stagger_amount']); ?>" min="0" max="0.5" step="0.01" class="small-text" /> s</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="caa-instance-effect-accordion" data-effect="5" <?php echo $inst_effect === '5' ? 'style="display:block;"' : ''; ?>>
+                        <h3><?php esc_html_e('Effect 5: Character Shuffle Settings', 'logo-collision'); ?></h3>
+                        <table class="form-table" role="presentation">
+                            <tbody>
+                                <tr>
+                                    <th scope="row"><label><?php esc_html_e('Iterations', 'logo-collision'); ?></label></th>
+                                    <td><input type="number" name="caa_instance_effect5_shuffle_iterations" value="<?php echo esc_attr($editing_instance['effect5_shuffle_iterations']); ?>" min="1" max="10" step="1" class="small-text" /></td>
+                                </tr>
+                                <tr>
+                                    <th scope="row"><label><?php esc_html_e('Shuffle Duration', 'logo-collision'); ?></label></th>
+                                    <td><input type="number" name="caa_instance_effect5_shuffle_duration" value="<?php echo esc_attr($editing_instance['effect5_shuffle_duration']); ?>" min="0.01" max="0.1" step="0.01" class="small-text" /> s</td>
+                                </tr>
+                                <tr>
+                                    <th scope="row"><label><?php esc_html_e('Char Delay', 'logo-collision'); ?></label></th>
+                                    <td><input type="number" name="caa_instance_effect5_char_delay" value="<?php echo esc_attr($editing_instance['effect5_char_delay']); ?>" min="0" max="0.2" step="0.01" class="small-text" /> s</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="caa-instance-effect-accordion" data-effect="6" <?php echo $inst_effect === '6' ? 'style="display:block;"' : ''; ?>>
+                        <h3><?php esc_html_e('Effect 6: Rotation Settings', 'logo-collision'); ?></h3>
+                        <table class="form-table" role="presentation">
+                            <tbody>
+                                <tr>
+                                    <th scope="row"><label><?php esc_html_e('Rotation', 'logo-collision'); ?></label></th>
+                                    <td><input type="number" name="caa_instance_effect6_rotation" value="<?php echo esc_attr($editing_instance['effect6_rotation']); ?>" min="-180" max="180" step="5" class="small-text" /> &deg;</td>
+                                </tr>
+                                <tr>
+                                    <th scope="row"><label><?php esc_html_e('X Percent', 'logo-collision'); ?></label></th>
+                                    <td><input type="number" name="caa_instance_effect6_x_percent" value="<?php echo esc_attr($editing_instance['effect6_x_percent']); ?>" min="-50" max="50" step="1" class="small-text" /> %</td>
+                                </tr>
+                                <tr>
+                                    <th scope="row"><label><?php esc_html_e('Transform Origin', 'logo-collision'); ?></label></th>
+                                    <td>
+                                        X: <input type="number" name="caa_instance_effect6_origin_x" value="<?php echo esc_attr($editing_instance['effect6_origin_x']); ?>" min="0" max="100" step="5" class="small-text" />%
+                                        Y: <input type="number" name="caa_instance_effect6_origin_y" value="<?php echo esc_attr($editing_instance['effect6_origin_y']); ?>" min="0" max="100" step="5" class="small-text" />%
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="caa-instance-effect-accordion" data-effect="7" <?php echo $inst_effect === '7' ? 'style="display:block;"' : ''; ?>>
+                        <h3><?php esc_html_e('Effect 7: Move Away Settings', 'logo-collision'); ?></h3>
+                        <table class="form-table" role="presentation">
+                            <tbody>
+                                <tr>
+                                    <th scope="row"><label><?php esc_html_e('Move Distance', 'logo-collision'); ?></label></th>
+                                    <td>
+                                        <input type="text" name="caa_instance_effect7_move_distance" value="<?php echo esc_attr($editing_instance['effect7_move_distance']); ?>" class="regular-text" placeholder="auto (e.g., 100px or 50%)" />
+                                        <p class="description"><?php esc_html_e('Leave empty for auto (moves element off-screen).', 'logo-collision'); ?></p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <h3><?php esc_html_e('Page Filtering', 'logo-collision'); ?></h3>
+                    <table class="form-table" role="presentation">
+                        <tbody>
+                            <tr>
+                                <th scope="row"><label><?php esc_html_e('Enable Filtering', 'logo-collision'); ?></label></th>
+                                <td>
+                                    <label>
+                                        <input type="checkbox" name="caa_instance_enable_filtering" value="1" <?php checked($editing_instance['enable_filtering'], '1'); ?> id="caa_instance_enable_filtering" />
+                                        <?php esc_html_e('Enable page filtering for this instance', 'logo-collision'); ?>
+                                    </label>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <div id="caa-instance-filtering-options" style="<?php echo $editing_instance['enable_filtering'] === '1' ? '' : 'display:none;'; ?>">
+                        <table class="form-table" role="presentation">
+                            <tbody>
+                                <tr>
+                                    <th scope="row"><?php esc_html_e('Filter Mode', 'logo-collision'); ?></th>
+                                    <td>
+                                        <label><input type="radio" name="caa_instance_filter_mode" value="include" <?php checked($editing_instance['filter_mode'], 'include'); ?> /> <?php esc_html_e('Include only selected', 'logo-collision'); ?></label><br>
+                                        <label><input type="radio" name="caa_instance_filter_mode" value="exclude" <?php checked($editing_instance['filter_mode'], 'exclude'); ?> /> <?php esc_html_e('Exclude selected', 'logo-collision'); ?></label>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row"><?php esc_html_e('Pages', 'logo-collision'); ?></th>
+                                    <td>
+                                        <label><input type="checkbox" name="caa_instance_include_pages" value="1" <?php checked($editing_instance['include_pages'], '1'); ?> /> <?php esc_html_e('All pages', 'logo-collision'); ?></label>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row"><?php esc_html_e('Posts', 'logo-collision'); ?></th>
+                                    <td>
+                                        <label><input type="checkbox" name="caa_instance_include_posts" value="1" <?php checked($editing_instance['include_posts'], '1'); ?> /> <?php esc_html_e('All posts', 'logo-collision'); ?></label>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row"><?php esc_html_e('Post Types', 'logo-collision'); ?></th>
+                                    <td>
+                                        <?php
+                                        $inst_post_types = isset($editing_instance['selected_post_types']) ? $editing_instance['selected_post_types'] : array();
+                                        foreach ($all_post_types as $pt_slug => $pt_obj) :
+                                            if (in_array($pt_slug, array('post', 'page', 'attachment'), true)) continue;
+                                        ?>
+                                            <label><input type="checkbox" name="caa_instance_post_types[]" value="<?php echo esc_attr($pt_slug); ?>" <?php checked(in_array($pt_slug, $inst_post_types, true)); ?> /> <?php echo esc_html($pt_obj->labels->name); ?></label><br>
+                                        <?php endforeach; ?>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <h3><?php esc_html_e('Debug', 'logo-collision'); ?></h3>
+                    <table class="form-table" role="presentation">
+                        <tbody>
+                            <tr>
+                                <th scope="row"><label><?php esc_html_e('Debug Mode', 'logo-collision'); ?></label></th>
+                                <td>
+                                    <label><input type="checkbox" name="caa_instance_debug" value="1" <?php checked($editing_instance['debug_mode'], '1'); ?> /> <?php esc_html_e('Enable debug console output', 'logo-collision'); ?></label>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <?php submit_button(__('Save Instance', 'logo-collision'), 'primary', 'caa_save_instance'); ?>
+                </form>
+            <?php else : ?>
+                <!-- Instance List -->
+                <div class="caa-pro-header">
+                    <h2><?php esc_html_e('Logo Instances', 'logo-collision'); ?></h2>
+                    <p class="description">
+                        <?php printf(esc_html__('Create multiple instances to animate different elements with separate settings. Maximum %d instances.', 'logo-collision'), CAA_MAX_INSTANCES); ?>
+                    </p>
+                </div>
+                
+                <div class="caa-instances-container">
+                    <?php if (empty($all_instances)) : ?>
+                        <p class="caa-no-instances"><?php esc_html_e('No instances created yet. Create your first instance to get started.', 'logo-collision'); ?></p>
+                    <?php else : ?>
+                        <table class="wp-list-table widefat fixed striped caa-instances-table">
+                            <thead>
+                                <tr>
+                                    <th class="caa-col-status"><?php esc_html_e('Status', 'logo-collision'); ?></th>
+                                    <th class="caa-col-name"><?php esc_html_e('Name (Logo Selector)', 'logo-collision'); ?></th>
+                                    <th class="caa-col-effect"><?php esc_html_e('Effect', 'logo-collision'); ?></th>
+                                    <th class="caa-col-actions"><?php esc_html_e('Actions', 'logo-collision'); ?></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php 
+                                $effect_names = array(
+                                    '1' => __('Scale', 'logo-collision'),
+                                    '2' => __('Blur', 'logo-collision'),
+                                    '3' => __('Slide Text', 'logo-collision'),
+                                    '4' => __('Text Split', 'logo-collision'),
+                                    '5' => __('Character Shuffle', 'logo-collision'),
+                                    '6' => __('Rotation', 'logo-collision'),
+                                    '7' => __('Move Away', 'logo-collision'),
+                                );
+                                foreach ($all_instances as $inst_id => $inst) : 
+                                    $inst = array_merge($plugin_instance->get_default_instance_data(), $inst);
+                                    $inst_name = $plugin_instance->get_instance_name($inst_id, $inst);
+                                    $inst_effect_name = isset($effect_names[$inst['selected_effect']]) ? $effect_names[$inst['selected_effect']] : __('Unknown', 'logo-collision');
+                                ?>
+                                    <tr>
+                                        <td class="caa-col-status">
+                                            <?php if (!empty($inst['enabled'])) : ?>
+                                                <span class="caa-status-enabled" title="<?php esc_attr_e('Enabled', 'logo-collision'); ?>">&#10003;</span>
+                                            <?php else : ?>
+                                                <span class="caa-status-disabled" title="<?php esc_attr_e('Disabled', 'logo-collision'); ?>">&mdash;</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td class="caa-col-name">
+                                            <strong><?php echo esc_html($inst_name); ?></strong>
+                                        </td>
+                                        <td class="caa-col-effect">
+                                            <?php echo esc_html($inst_effect_name); ?>
+                                        </td>
+                                        <td class="caa-col-actions">
+                                            <a href="<?php echo esc_url(admin_url('options-general.php?page=logo-collision&edit_instance=' . $inst_id . '#pro-instances')); ?>" class="button button-small"><?php esc_html_e('Edit', 'logo-collision'); ?></a>
+                                            <form method="post" action="" style="display:inline;">
+                                                <?php wp_nonce_field('caa_instance_nonce'); ?>
+                                                <input type="hidden" name="caa_instance_id" value="<?php echo esc_attr($inst_id); ?>" />
+                                                <button type="submit" name="caa_delete_instance" class="button button-small button-link-delete" onclick="return confirm('<?php esc_attr_e('Are you sure you want to delete this instance?', 'logo-collision'); ?>');"><?php esc_html_e('Delete', 'logo-collision'); ?></button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    <?php endif; ?>
+                    
+                    <p class="caa-instances-actions">
+                        <?php if ($can_add_instance) : ?>
+                            <a href="<?php echo esc_url(admin_url('options-general.php?page=logo-collision&edit_instance=0#pro-instances')); ?>" class="button button-primary"><?php esc_html_e('Add New Instance', 'logo-collision'); ?></a>
+                        <?php else : ?>
+                            <button class="button button-primary" disabled><?php printf(esc_html__('Maximum %d Instances Reached', 'logo-collision'), CAA_MAX_INSTANCES); ?></button>
+                        <?php endif; ?>
+                        <span class="caa-instances-count"><?php printf(esc_html__('%d of %d instances', 'logo-collision'), $instance_count, CAA_MAX_INSTANCES); ?></span>
+                    </p>
+                </div>
+            <?php endif; ?>
+        </div>
+        
         <!-- Mappings Sub-tab -->
-        <div id="pro-mappings" class="caa-sub-tab-content caa-sub-tab-active">
+        <div id="pro-mappings" class="caa-sub-tab-content">
             <form method="post" action="">
                 <?php wp_nonce_field('caa_pro_mappings_nonce'); ?>
                 

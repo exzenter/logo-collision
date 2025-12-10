@@ -20,6 +20,7 @@ if (!defined('ABSPATH')) {
 define('CAA_VERSION', '1.0.0');
 define('CAA_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('CAA_PLUGIN_URL', plugin_dir_url(__FILE__));
+define('CAA_MAX_INSTANCES', 10);
 
 /**
  * Main plugin class
@@ -55,11 +56,316 @@ class Context_Aware_Animation {
         // Admin hooks
         add_action('admin_menu', array($this, 'add_settings_page'));
         add_action('admin_init', array($this, 'register_settings'));
+        add_action('admin_init', array($this, 'maybe_migrate_legacy_settings'));
         add_action('wp_ajax_caa_search_posts', array($this, 'ajax_search_posts'));
         
         // Frontend hooks
         add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'));
         add_filter('script_loader_tag', array($this, 'add_module_type'), 10, 3);
+    }
+    
+    // =========================================================================
+    // INSTANCE MANAGEMENT METHODS (Pro Version)
+    // =========================================================================
+    
+    /**
+     * Get default instance data structure
+     */
+    public function get_default_instance_data() {
+        return array(
+            'enabled' => true,
+            'logo_id' => '',
+            'selected_effect' => '1',
+            'included_elements' => '',
+            'excluded_elements' => '',
+            'global_offset' => '0',
+            'debug_mode' => '0',
+            'duration' => '0.6',
+            'ease' => 'power4',
+            'offset_start' => '30',
+            'offset_end' => '10',
+            // Effect 1: Scale
+            'effect1_scale_down' => '0',
+            'effect1_origin_x' => '0',
+            'effect1_origin_y' => '50',
+            // Effect 2: Blur
+            'effect2_blur_amount' => '5',
+            'effect2_blur_scale' => '0.9',
+            'effect2_blur_duration' => '0.2',
+            // Effect 4: Text Split
+            'effect4_text_x_range' => '50',
+            'effect4_text_y_range' => '40',
+            'effect4_stagger_amount' => '0.03',
+            // Effect 5: Character Shuffle
+            'effect5_shuffle_iterations' => '2',
+            'effect5_shuffle_duration' => '0.03',
+            'effect5_char_delay' => '0.03',
+            // Effect 6: Rotation
+            'effect6_rotation' => '-90',
+            'effect6_x_percent' => '-5',
+            'effect6_origin_x' => '0',
+            'effect6_origin_y' => '100',
+            // Effect 7: Move Away
+            'effect7_move_distance' => '',
+            // Pro features per instance
+            'effect_mappings' => array(),
+            'enable_filtering' => '0',
+            'filter_mode' => 'include',
+            'selected_post_types' => array(),
+            'include_pages' => '0',
+            'include_posts' => '0',
+            'selected_items' => array(),
+        );
+    }
+    
+    /**
+     * Get all instances
+     */
+    public function get_all_instances() {
+        $instances = get_option('caa_instances', array());
+        if (!is_array($instances)) {
+            return array();
+        }
+        return $instances;
+    }
+    
+    /**
+     * Get a single logo instance by ID
+     */
+    public function get_logo_instance($id) {
+        $instances = $this->get_all_instances();
+        if (isset($instances[$id])) {
+            // Merge with defaults to ensure all keys exist
+            return array_merge($this->get_default_instance_data(), $instances[$id]);
+        }
+        return null;
+    }
+    
+    /**
+     * Save a single instance
+     */
+    public function save_instance($id, $data) {
+        $instances = $this->get_all_instances();
+        
+        // Enforce max instances limit (except when updating existing)
+        if (!isset($instances[$id]) && count($instances) >= CAA_MAX_INSTANCES) {
+            return false;
+        }
+        
+        // Sanitize the instance data
+        $instances[$id] = $this->sanitize_instance_data($data);
+        
+        return update_option('caa_instances', $instances);
+    }
+    
+    /**
+     * Delete a single instance
+     */
+    public function delete_instance($id) {
+        $instances = $this->get_all_instances();
+        
+        if (isset($instances[$id])) {
+            unset($instances[$id]);
+            return update_option('caa_instances', $instances);
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Get all enabled instances
+     */
+    public function get_enabled_instances() {
+        $instances = $this->get_all_instances();
+        $enabled = array();
+        
+        foreach ($instances as $id => $instance) {
+            $instance = array_merge($this->get_default_instance_data(), $instance);
+            if (!empty($instance['enabled'])) {
+                $enabled[$id] = $instance;
+            }
+        }
+        
+        return $enabled;
+    }
+    
+    /**
+     * Get the next available instance ID
+     */
+    public function get_next_instance_id() {
+        $instances = $this->get_all_instances();
+        $max_id = 0;
+        
+        foreach (array_keys($instances) as $id) {
+            if (is_numeric($id) && intval($id) > $max_id) {
+                $max_id = intval($id);
+            }
+        }
+        
+        return $max_id + 1;
+    }
+    
+    /**
+     * Check if migration is needed and perform it
+     */
+    public function maybe_migrate_legacy_settings() {
+        // Check if instances already exist
+        $instances = $this->get_all_instances();
+        if (!empty($instances)) {
+            return; // Already migrated or has instances
+        }
+        
+        // Check if legacy settings exist
+        $legacy_logo_id = get_option('caa_logo_id', '');
+        if (empty($legacy_logo_id)) {
+            return; // No legacy settings to migrate
+        }
+        
+        // Migrate legacy settings to Instance 1
+        $this->migrate_legacy_settings_to_instances();
+    }
+    
+    /**
+     * Migrate legacy settings to the new instances structure
+     */
+    private function migrate_legacy_settings_to_instances() {
+        $instance_data = array(
+            'enabled' => true,
+            'logo_id' => get_option('caa_logo_id', ''),
+            'selected_effect' => get_option('caa_selected_effect', '1'),
+            'included_elements' => get_option('caa_included_elements', ''),
+            'excluded_elements' => get_option('caa_excluded_elements', ''),
+            'global_offset' => get_option('caa_global_offset', '0'),
+            'debug_mode' => get_option('caa_debug_mode', '0'),
+            'duration' => get_option('caa_duration', '0.6'),
+            'ease' => get_option('caa_ease', 'power4'),
+            'offset_start' => get_option('caa_offset_start', '30'),
+            'offset_end' => get_option('caa_offset_end', '10'),
+            // Effect settings
+            'effect1_scale_down' => get_option('caa_effect1_scale_down', '0'),
+            'effect1_origin_x' => get_option('caa_effect1_origin_x', '0'),
+            'effect1_origin_y' => get_option('caa_effect1_origin_y', '50'),
+            'effect2_blur_amount' => get_option('caa_effect2_blur_amount', '5'),
+            'effect2_blur_scale' => get_option('caa_effect2_blur_scale', '0.9'),
+            'effect2_blur_duration' => get_option('caa_effect2_blur_duration', '0.2'),
+            'effect4_text_x_range' => get_option('caa_effect4_text_x_range', '50'),
+            'effect4_text_y_range' => get_option('caa_effect4_text_y_range', '40'),
+            'effect4_stagger_amount' => get_option('caa_effect4_stagger_amount', '0.03'),
+            'effect5_shuffle_iterations' => get_option('caa_effect5_shuffle_iterations', '2'),
+            'effect5_shuffle_duration' => get_option('caa_effect5_shuffle_duration', '0.03'),
+            'effect5_char_delay' => get_option('caa_effect5_char_delay', '0.03'),
+            'effect6_rotation' => get_option('caa_effect6_rotation', '-90'),
+            'effect6_x_percent' => get_option('caa_effect6_x_percent', '-5'),
+            'effect6_origin_x' => get_option('caa_effect6_origin_x', '0'),
+            'effect6_origin_y' => get_option('caa_effect6_origin_y', '100'),
+            'effect7_move_distance' => get_option('caa_effect7_move_distance', ''),
+            // Pro features
+            'effect_mappings' => get_option('caa_pro_effect_mappings', array()),
+            'enable_filtering' => get_option('caa_pro_enable_filtering', '0'),
+            'filter_mode' => get_option('caa_pro_filter_mode', 'include'),
+            'selected_post_types' => get_option('caa_pro_selected_post_types', array()),
+            'include_pages' => get_option('caa_pro_include_pages', '0'),
+            'include_posts' => get_option('caa_pro_include_posts', '0'),
+            'selected_items' => get_option('caa_pro_selected_items', array()),
+        );
+        
+        // Save as Instance 1
+        $instances = array(
+            1 => $instance_data
+        );
+        
+        update_option('caa_instances', $instances);
+        
+        // Set a flag to show migration notice
+        set_transient('caa_migration_notice', true, 60);
+    }
+    
+    /**
+     * Sanitize instance data
+     */
+    public function sanitize_instance_data($data) {
+        $defaults = $this->get_default_instance_data();
+        $sanitized = array();
+        
+        // Boolean/checkbox fields
+        $sanitized['enabled'] = !empty($data['enabled']);
+        $sanitized['debug_mode'] = isset($data['debug_mode']) ? sanitize_text_field($data['debug_mode']) : '0';
+        $sanitized['enable_filtering'] = isset($data['enable_filtering']) ? sanitize_text_field($data['enable_filtering']) : '0';
+        $sanitized['include_pages'] = isset($data['include_pages']) ? sanitize_text_field($data['include_pages']) : '0';
+        $sanitized['include_posts'] = isset($data['include_posts']) ? sanitize_text_field($data['include_posts']) : '0';
+        
+        // Text fields
+        $sanitized['logo_id'] = isset($data['logo_id']) ? sanitize_text_field($data['logo_id']) : '';
+        $sanitized['included_elements'] = isset($data['included_elements']) ? sanitize_textarea_field($data['included_elements']) : '';
+        $sanitized['excluded_elements'] = isset($data['excluded_elements']) ? sanitize_textarea_field($data['excluded_elements']) : '';
+        
+        // Effect selection
+        $sanitized['selected_effect'] = isset($data['selected_effect']) ? $this->sanitize_effect($data['selected_effect']) : '1';
+        
+        // Offset fields
+        $sanitized['global_offset'] = isset($data['global_offset']) ? $this->sanitize_offset($data['global_offset']) : '0';
+        $sanitized['offset_start'] = isset($data['offset_start']) ? $this->sanitize_offset($data['offset_start']) : '30';
+        $sanitized['offset_end'] = isset($data['offset_end']) ? $this->sanitize_offset($data['offset_end']) : '10';
+        
+        // Float fields
+        $sanitized['duration'] = isset($data['duration']) ? $this->sanitize_float($data['duration']) : '0.6';
+        
+        // Ease
+        $sanitized['ease'] = isset($data['ease']) ? $this->sanitize_ease($data['ease']) : 'power4';
+        
+        // Filter mode
+        $sanitized['filter_mode'] = isset($data['filter_mode']) ? $this->sanitize_filter_mode($data['filter_mode']) : 'include';
+        
+        // Effect 1 settings
+        $sanitized['effect1_scale_down'] = isset($data['effect1_scale_down']) ? $this->sanitize_float($data['effect1_scale_down']) : '0';
+        $sanitized['effect1_origin_x'] = isset($data['effect1_origin_x']) ? $this->sanitize_percent($data['effect1_origin_x']) : '0';
+        $sanitized['effect1_origin_y'] = isset($data['effect1_origin_y']) ? $this->sanitize_percent($data['effect1_origin_y']) : '50';
+        
+        // Effect 2 settings
+        $sanitized['effect2_blur_amount'] = isset($data['effect2_blur_amount']) ? $this->sanitize_float($data['effect2_blur_amount']) : '5';
+        $sanitized['effect2_blur_scale'] = isset($data['effect2_blur_scale']) ? $this->sanitize_float($data['effect2_blur_scale']) : '0.9';
+        $sanitized['effect2_blur_duration'] = isset($data['effect2_blur_duration']) ? $this->sanitize_float($data['effect2_blur_duration']) : '0.2';
+        
+        // Effect 4 settings
+        $sanitized['effect4_text_x_range'] = isset($data['effect4_text_x_range']) ? $this->sanitize_offset($data['effect4_text_x_range']) : '50';
+        $sanitized['effect4_text_y_range'] = isset($data['effect4_text_y_range']) ? $this->sanitize_offset($data['effect4_text_y_range']) : '40';
+        $sanitized['effect4_stagger_amount'] = isset($data['effect4_stagger_amount']) ? $this->sanitize_float($data['effect4_stagger_amount']) : '0.03';
+        
+        // Effect 5 settings
+        $sanitized['effect5_shuffle_iterations'] = isset($data['effect5_shuffle_iterations']) ? $this->sanitize_offset($data['effect5_shuffle_iterations']) : '2';
+        $sanitized['effect5_shuffle_duration'] = isset($data['effect5_shuffle_duration']) ? $this->sanitize_float($data['effect5_shuffle_duration']) : '0.03';
+        $sanitized['effect5_char_delay'] = isset($data['effect5_char_delay']) ? $this->sanitize_float($data['effect5_char_delay']) : '0.03';
+        
+        // Effect 6 settings
+        $sanitized['effect6_rotation'] = isset($data['effect6_rotation']) ? $this->sanitize_offset($data['effect6_rotation']) : '-90';
+        $sanitized['effect6_x_percent'] = isset($data['effect6_x_percent']) ? $this->sanitize_offset($data['effect6_x_percent']) : '-5';
+        $sanitized['effect6_origin_x'] = isset($data['effect6_origin_x']) ? $this->sanitize_percent($data['effect6_origin_x']) : '0';
+        $sanitized['effect6_origin_y'] = isset($data['effect6_origin_y']) ? $this->sanitize_percent($data['effect6_origin_y']) : '100';
+        
+        // Effect 7 settings
+        $sanitized['effect7_move_distance'] = isset($data['effect7_move_distance']) ? $this->sanitize_move_away($data['effect7_move_distance']) : '';
+        
+        // Array fields
+        $sanitized['effect_mappings'] = isset($data['effect_mappings']) ? $this->sanitize_effect_mappings($data['effect_mappings']) : array();
+        $sanitized['selected_post_types'] = isset($data['selected_post_types']) ? $this->sanitize_post_types($data['selected_post_types']) : array();
+        $sanitized['selected_items'] = isset($data['selected_items']) ? $this->sanitize_post_ids($data['selected_items']) : array();
+        
+        return $sanitized;
+    }
+    
+    /**
+     * Get instance display name (uses logo ID or fallback)
+     */
+    public function get_instance_name($id, $instance = null) {
+        if ($instance === null) {
+            $instance = $this->get_logo_instance($id);
+        }
+        
+        if ($instance && !empty($instance['logo_id'])) {
+            return $instance['logo_id'];
+        }
+        
+        return sprintf(__('Instance %d', 'logo-collision'), $id);
     }
     
     /**
@@ -316,6 +622,36 @@ class Context_Aware_Animation {
             'sanitize_callback' => array($this, 'sanitize_post_ids'),
             'default' => array()
         ));
+        
+        // Pro Version: Instances (multiple logos/settings)
+        register_setting('caa_settings_group', 'caa_instances', array(
+            'type' => 'array',
+            'sanitize_callback' => array($this, 'sanitize_instances'),
+            'default' => array()
+        ));
+    }
+    
+    /**
+     * Sanitize all instances
+     */
+    public function sanitize_instances($value) {
+        if (!is_array($value)) {
+            return array();
+        }
+        
+        $sanitized = array();
+        $count = 0;
+        
+        foreach ($value as $id => $instance_data) {
+            if ($count >= CAA_MAX_INSTANCES) {
+                break;
+            }
+            
+            $sanitized[$id] = $this->sanitize_instance_data($instance_data);
+            $count++;
+        }
+        
+        return $sanitized;
     }
     
     /**
@@ -529,21 +865,21 @@ class Context_Aware_Animation {
     }
     
     /**
-     * Check if plugin should load on current page
+     * Check if a specific instance should load on current page
      */
-    private function should_load_plugin() {
-        $enable_filtering = get_option('caa_pro_enable_filtering', '0');
+    private function should_load_instance($instance_data) {
+        $enable_filtering = isset($instance_data['enable_filtering']) ? $instance_data['enable_filtering'] : '0';
         
         // If filtering is disabled, run everywhere (default behavior)
         if ($enable_filtering !== '1') {
             return true;
         }
         
-        $filter_mode = get_option('caa_pro_filter_mode', 'include');
-        $selected_post_types = get_option('caa_pro_selected_post_types', array());
-        $include_pages = get_option('caa_pro_include_pages', '0');
-        $include_posts = get_option('caa_pro_include_posts', '0');
-        $selected_items = get_option('caa_pro_selected_items', array());
+        $filter_mode = isset($instance_data['filter_mode']) ? $instance_data['filter_mode'] : 'include';
+        $selected_post_types = isset($instance_data['selected_post_types']) ? $instance_data['selected_post_types'] : array();
+        $include_pages = isset($instance_data['include_pages']) ? $instance_data['include_pages'] : '0';
+        $include_posts = isset($instance_data['include_posts']) ? $instance_data['include_posts'] : '0';
+        $selected_items = isset($instance_data['selected_items']) ? $instance_data['selected_items'] : array();
         
         $current_post_id = 0;
         $current_post_type = '';
@@ -584,6 +920,34 @@ class Context_Aware_Animation {
             // Exclude mode: load everywhere except where rules match
             return !$matches_rule;
         }
+    }
+    
+    /**
+     * Legacy method for backward compatibility
+     * Check if plugin should load on current page (uses legacy single-instance settings)
+     */
+    private function should_load_plugin() {
+        // Check if we have instances
+        $instances = $this->get_enabled_instances();
+        if (!empty($instances)) {
+            // At least one instance should load
+            foreach ($instances as $instance) {
+                if ($this->should_load_instance($instance)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        
+        // Fallback to legacy behavior
+        $enable_filtering = get_option('caa_pro_enable_filtering', '0');
+        
+        if ($enable_filtering !== '1') {
+            return true;
+        }
+        
+        // ... legacy filtering logic ...
+        return true;
     }
     
     /**
@@ -632,24 +996,14 @@ class Context_Aware_Animation {
     }
     
     /**
-     * Build the settings array for JavaScript
+     * Build the settings array for a single instance (for JavaScript)
      */
-    private function build_settings_array() {
-        $logo_id = get_option('caa_logo_id', '');
-        $selected_effect = get_option('caa_selected_effect', '1');
-        $included_elements = get_option('caa_included_elements', '');
-        $excluded_elements = get_option('caa_excluded_elements', '');
-        $global_offset = get_option('caa_global_offset', '0');
-        $debug_mode = get_option('caa_debug_mode', '0');
-        
-        // Get global animation settings
-        $duration = get_option('caa_duration', '0.6');
-        $ease = get_option('caa_ease', 'power4');
-        $offset_start = get_option('caa_offset_start', '30');
-        $offset_end = get_option('caa_offset_end', '10');
+    private function build_settings_array_for_instance($instance_id, $instance_data) {
+        $defaults = $this->get_default_instance_data();
+        $instance = array_merge($defaults, $instance_data);
         
         // Get Pro Version effect mappings and convert keys to camelCase for JS
-        $effect_mappings_raw = get_option('caa_pro_effect_mappings', array());
+        $effect_mappings_raw = isset($instance['effect_mappings']) ? $instance['effect_mappings'] : array();
         $effect_mappings = array();
         foreach ($effect_mappings_raw as $mapping) {
             $js_mapping = array(
@@ -662,14 +1016,12 @@ class Context_Aware_Animation {
             if ($js_mapping['overrideEnabled'] && isset($mapping['settings']) && is_array($mapping['settings'])) {
                 $settings = $mapping['settings'];
                 $js_mapping['settings'] = array(
-                    // Global animation settings
                     'duration' => isset($settings['duration']) ? $settings['duration'] : '0.6',
                     'ease' => isset($settings['ease']) ? $settings['ease'] : 'power4',
                     'offsetStart' => isset($settings['offset_start']) ? $settings['offset_start'] : '30',
                     'offsetEnd' => isset($settings['offset_end']) ? $settings['offset_end'] : '10',
                 );
                 
-                // Effect-specific settings (camelCase)
                 $effect = $js_mapping['effect'];
                 switch ($effect) {
                     case '1':
@@ -707,97 +1059,109 @@ class Context_Aware_Animation {
             $effect_mappings[] = $js_mapping;
         }
         
-        // Get mobile disable settings
-        $disable_mobile = get_option('caa_disable_mobile', '0');
-        $mobile_breakpoint = get_option('caa_mobile_breakpoint', '768');
-        
-        // Build settings array
+        // Build settings array for this instance
         $settings_array = array(
-            'logoId' => $logo_id,
-            'selectedEffect' => $selected_effect,
-            'includedElements' => $included_elements,
-            'excludedElements' => $excluded_elements,
-            'globalOffset' => $global_offset,
-            'debugMode' => $debug_mode,
-            'disableMobile' => $disable_mobile,
-            'mobileBreakpoint' => $mobile_breakpoint,
-            'duration' => $duration,
-            'ease' => $ease,
-            'offsetStart' => $offset_start,
-            'offsetEnd' => $offset_end,
-            'effectMappings' => $effect_mappings
+            'instanceId' => $instance_id,
+            'logoId' => $instance['logo_id'],
+            'selectedEffect' => $instance['selected_effect'],
+            'includedElements' => $instance['included_elements'],
+            'excludedElements' => $instance['excluded_elements'],
+            'globalOffset' => $instance['global_offset'],
+            'debugMode' => $instance['debug_mode'],
+            'duration' => $instance['duration'],
+            'ease' => $instance['ease'],
+            'offsetStart' => $instance['offset_start'],
+            'offsetEnd' => $instance['offset_end'],
+            'effectMappings' => $effect_mappings,
+            // Effect settings
+            'effect1ScaleDown' => $instance['effect1_scale_down'],
+            'effect1OriginX' => $instance['effect1_origin_x'],
+            'effect1OriginY' => $instance['effect1_origin_y'],
+            'effect2BlurAmount' => $instance['effect2_blur_amount'],
+            'effect2BlurScale' => $instance['effect2_blur_scale'],
+            'effect2BlurDuration' => $instance['effect2_blur_duration'],
+            'effect4TextXRange' => $instance['effect4_text_x_range'],
+            'effect4TextYRange' => $instance['effect4_text_y_range'],
+            'effect4StaggerAmount' => $instance['effect4_stagger_amount'],
+            'effect5ShuffleIterations' => $instance['effect5_shuffle_iterations'],
+            'effect5ShuffleDuration' => $instance['effect5_shuffle_duration'],
+            'effect5CharDelay' => $instance['effect5_char_delay'],
+            'effect6Rotation' => $instance['effect6_rotation'],
+            'effect6XPercent' => $instance['effect6_x_percent'],
+            'effect6OriginX' => $instance['effect6_origin_x'],
+            'effect6OriginY' => $instance['effect6_origin_y'],
+            'effect7MoveDistance' => $instance['effect7_move_distance'],
         );
-        
-        // Determine which effects are needed
-        $needed_effects = array($selected_effect);
-        foreach ($effect_mappings as $mapping) {
-            if (!empty($mapping['effect']) && !in_array($mapping['effect'], $needed_effects)) {
-                $needed_effects[] = $mapping['effect'];
-            }
-        }
-        
-        // Add all effect settings that are needed
-        foreach ($needed_effects as $effect) {
-            switch ($effect) {
-                case '1':
-                    if (!isset($settings_array['effect1ScaleDown'])) {
-                        $settings_array['effect1ScaleDown'] = get_option('caa_effect1_scale_down', '0');
-                        $settings_array['effect1OriginX'] = get_option('caa_effect1_origin_x', '0');
-                        $settings_array['effect1OriginY'] = get_option('caa_effect1_origin_y', '50');
-                    }
-                    break;
-                case '2':
-                    if (!isset($settings_array['effect2BlurAmount'])) {
-                        $settings_array['effect2BlurAmount'] = get_option('caa_effect2_blur_amount', '5');
-                        $settings_array['effect2BlurScale'] = get_option('caa_effect2_blur_scale', '0.9');
-                        $settings_array['effect2BlurDuration'] = get_option('caa_effect2_blur_duration', '0.2');
-                    }
-                    break;
-                case '4':
-                    if (!isset($settings_array['effect4TextXRange'])) {
-                        $settings_array['effect4TextXRange'] = get_option('caa_effect4_text_x_range', '50');
-                        $settings_array['effect4TextYRange'] = get_option('caa_effect4_text_y_range', '40');
-                        $settings_array['effect4StaggerAmount'] = get_option('caa_effect4_stagger_amount', '0.03');
-                    }
-                    break;
-                case '5':
-                    if (!isset($settings_array['effect5ShuffleIterations'])) {
-                        $settings_array['effect5ShuffleIterations'] = get_option('caa_effect5_shuffle_iterations', '2');
-                        $settings_array['effect5ShuffleDuration'] = get_option('caa_effect5_shuffle_duration', '0.03');
-                        $settings_array['effect5CharDelay'] = get_option('caa_effect5_char_delay', '0.03');
-                    }
-                    break;
-                case '6':
-                    if (!isset($settings_array['effect6Rotation'])) {
-                        $settings_array['effect6Rotation'] = get_option('caa_effect6_rotation', '-90');
-                        $settings_array['effect6XPercent'] = get_option('caa_effect6_x_percent', '-5');
-                        $settings_array['effect6OriginX'] = get_option('caa_effect6_origin_x', '0');
-                        $settings_array['effect6OriginY'] = get_option('caa_effect6_origin_y', '100');
-                    }
-                    break;
-                case '7':
-                    if (!isset($settings_array['effect7MoveDistance'])) {
-                        $settings_array['effect7MoveDistance'] = get_option('caa_effect7_move_distance', '');
-                    }
-                    break;
-            }
-        }
         
         return $settings_array;
     }
     
     /**
-     * Check if text splitting effects are needed
+     * Build settings for all enabled instances that should load on current page
      */
-    private function needs_text_splitting() {
-        $selected_effect = get_option('caa_selected_effect', '1');
-        $effect_mappings = get_option('caa_pro_effect_mappings', array());
-        $all_effects_used = array($selected_effect);
-        foreach ($effect_mappings as $mapping) {
-            if (!empty($mapping['effect'])) {
-                $all_effects_used[] = $mapping['effect'];
+    private function build_all_instances_settings() {
+        $instances = $this->get_enabled_instances();
+        $instances_settings = array();
+        
+        foreach ($instances as $id => $instance) {
+            // Check if this instance should load on current page
+            if ($this->should_load_instance($instance)) {
+                // Only include instances with a logo ID
+                if (!empty($instance['logo_id'])) {
+                    $instances_settings[] = $this->build_settings_array_for_instance($id, $instance);
+                }
             }
         }
+        
+        return $instances_settings;
+    }
+    
+    /**
+     * Build the settings array for JavaScript (legacy support + multi-instance)
+     */
+    private function build_settings_array() {
+        // Get global mobile settings (shared across all instances)
+        $disable_mobile = get_option('caa_disable_mobile', '0');
+        $mobile_breakpoint = get_option('caa_mobile_breakpoint', '768');
+        
+        // Get all enabled instances' settings
+        $instances_settings = $this->build_all_instances_settings();
+        
+        // Return new structure with instances array
+        return array(
+            'disableMobile' => $disable_mobile,
+            'mobileBreakpoint' => $mobile_breakpoint,
+            'instances' => $instances_settings,
+        );
+    }
+    
+    /**
+     * Check if text splitting effects are needed (across all enabled instances)
+     */
+    private function needs_text_splitting() {
+        $instances = $this->get_enabled_instances();
+        $all_effects_used = array();
+        
+        foreach ($instances as $instance) {
+            // Check if this instance should load on current page
+            if (!$this->should_load_instance($instance)) {
+                continue;
+            }
+            
+            // Add instance's selected effect
+            if (!empty($instance['selected_effect'])) {
+                $all_effects_used[] = $instance['selected_effect'];
+            }
+            
+            // Add effects from mappings
+            $effect_mappings = isset($instance['effect_mappings']) ? $instance['effect_mappings'] : array();
+            foreach ($effect_mappings as $mapping) {
+                if (!empty($mapping['effect'])) {
+                    $all_effects_used[] = $mapping['effect'];
+                }
+            }
+        }
+        
         return count(array_intersect($all_effects_used, array('4', '5'))) > 0;
     }
     
@@ -810,14 +1174,20 @@ class Context_Aware_Animation {
             return;
         }
         
-        // Check if plugin should load based on filtering settings
-        if (!$this->should_load_plugin()) {
-            return;
+        // Get enabled instances that should load on current page
+        $instances = $this->get_enabled_instances();
+        $has_valid_instance = false;
+        
+        foreach ($instances as $instance) {
+            // Check if this instance should load on current page
+            if ($this->should_load_instance($instance) && !empty($instance['logo_id'])) {
+                $has_valid_instance = true;
+                break;
+            }
         }
         
-        // Don't enqueue if no logo ID is set
-        $logo_id = get_option('caa_logo_id', '');
-        if (empty($logo_id)) {
+        // Don't enqueue if no valid instances
+        if (!$has_valid_instance) {
             return;
         }
         
