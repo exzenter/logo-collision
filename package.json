@@ -1,0 +1,19 @@
+{
+  "name": "logo-collision",
+  "version": "1.0.0",
+  "description": "Build system for Logo Collision Free and Pro versions",
+  "scripts": {
+    "build": "node build/build.js",
+    "build:free": "node build/build.js --free",
+    "build:pro": "node build/build.js --pro"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/exzenter/logo-collision.git"
+  },
+  "license": "GPL-2.0-or-later",
+  "bugs": {
+    "url": "https://github.com/exzenter/logo-collision/issues"
+  },
+  "homepage": "https://github.com/exzenter/logo-collision#readme"
+}

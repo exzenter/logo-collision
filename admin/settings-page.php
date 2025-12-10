@@ -1323,6 +1323,28 @@ wp_localize_script('caa-admin', 'caaAdmin', array(
     
     <!-- Pro Version Tab -->
     <div id="pro-version" class="caa-tab-content">
+        <?php if (!defined('LOGO_COLLISION_PRO') || !LOGO_COLLISION_PRO) : ?>
+        <!-- Free Version Teaser -->
+        <div class="caa-pro-teaser" style="text-align: center; padding: 40px 20px; max-width: 600px; margin: 0 auto;">
+            <span class="dashicons dashicons-lock" style="font-size: 48px; width: 48px; height: 48px; color: #2271b1;"></span>
+            <h2 style="margin-top: 20px;"><?php esc_html_e('Unlock Pro Features', 'logo-collision'); ?></h2>
+            <p style="color: #666; font-size: 14px;">
+                <?php esc_html_e('Take your logo animations to the next level with Logo Collision Pro!', 'logo-collision'); ?>
+            </p>
+            <ul style="text-align: left; display: inline-block; margin: 20px 0;">
+                <li>✓ <?php esc_html_e('Up to 10 independent logo instances', 'logo-collision'); ?></li>
+                <li>✓ <?php esc_html_e('Per-element effect mappings (different effects for different elements)', 'logo-collision'); ?></li>
+                <li>✓ <?php esc_html_e('Page/post type filtering (show on specific pages only)', 'logo-collision'); ?></li>
+                <li>✓ <?php esc_html_e('Priority email support', 'logo-collision'); ?></li>
+            </ul>
+            <p>
+                <a href="https://exzent.de/wordpress-plugin/logo-collision" class="button button-primary button-hero" target="_blank" rel="noopener">
+                    <?php esc_html_e('Get Logo Collision Pro', 'logo-collision'); ?>
+                </a>
+            </p>
+        </div>
+        <?php else : ?>
+        <!-- PRO_START -->
         <!-- Instance Selector Bar -->
         <div class="caa-instance-selector-bar">
             <label for="caa-instance-select"><?php esc_html_e('Instance:', 'logo-collision'); ?></label>
@@ -2185,6 +2207,8 @@ wp_localize_script('caa-admin', 'caaAdmin', array(
                 <?php submit_button(__('Save Filtering Settings', 'logo-collision'), 'primary', 'caa_save_instance_filtering'); ?>
             </form>
         </div><!-- End Filtering Sub-tab -->
+        <!-- PRO_END -->
+        <?php endif; ?>
     </div><!-- End Pro Version Tab -->
     
     <div class="caa-info-box">

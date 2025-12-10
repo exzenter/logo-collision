@@ -20,7 +20,20 @@ if (!defined('ABSPATH')) {
 define('CAA_VERSION', '1.0.0');
 define('CAA_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('CAA_PLUGIN_URL', plugin_dir_url(__FILE__));
-define('CAA_MAX_INSTANCES', 10);
+define('LOGO_COLLISION_PRO', true); // Build script sets to false for Free version
+
+// Max instances: 10 for Pro, 1 for Free
+if (defined('LOGO_COLLISION_PRO') && LOGO_COLLISION_PRO) {
+    define('CAA_MAX_INSTANCES', 10);
+} else {
+    define('CAA_MAX_INSTANCES', 1);
+}
+
+// PRO_START
+// Load Pro-only classes
+require_once CAA_PLUGIN_DIR . 'includes/class-license.php';
+require_once CAA_PLUGIN_DIR . 'includes/class-updater.php';
+// PRO_END
 
 /**
  * Main plugin class

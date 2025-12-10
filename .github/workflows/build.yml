@@ -1,0 +1,65 @@
+name: Build Plugin
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build plugins
+        run: npm run build
+      
+      - name: Upload Free version artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: logo-collision-free
+          path: dist/logo-collision*.zip
+          if-no-files-found: error
+      
+      - name: Upload Pro version artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: logo-collision-pro
+          path: dist/logo-collision-pro*.zip
+          if-no-files-found: error
+  
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            dist/logo-collision-free/*.zip
+            dist/logo-collision-pro/*.zip
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
