@@ -316,6 +316,18 @@ function initInstance(instanceSettings, globalSettings) {
             ...animationProps,
             onComplete: () => { resetElement(target); target.currentTween = null; }
           });
+        },
+        onTransition: (target) => {
+          if (target.currentTween) target.currentTween.kill();
+          // Update transform origin if different
+          gsap.set(target, { transformOrigin: `${effect1Settings.originX1}% ${effect1Settings.originY1}%` });
+          // Animate directly from current state to new target
+          target.currentTween = gsap.to(target, {
+            scale: effect1Settings.scaleDown,
+            autoAlpha: 0,
+            ...animationProps,
+            onComplete: () => { target.currentTween = null; }
+          });
         }
       };
       
@@ -355,6 +367,19 @@ function initInstance(instanceSettings, globalSettings) {
             ...animationProps,
             onComplete: () => { resetElement(target); target.currentTween = null; }
           });
+        },
+        onTransition: (target) => {
+          if (target.currentTween) target.currentTween.kill();
+          // Update transform origin if needed
+          gsap.set(target, { transformOrigin: '0% 50%' });
+          // Animate directly from current state to new target
+          target.currentTween = gsap.to(target, {
+            filter: `blur(${effect2Settings.blurAmount}px)`,
+            scale: effect2Settings.blurScale,
+            duration: effect2Settings.blurDuration,
+            ease: 'sine',
+            onComplete: () => { target.currentTween = null; }
+          });
         }
       };
       
@@ -387,6 +412,25 @@ function initInstance(instanceSettings, globalSettings) {
               resetElement(target);
               target.currentTween = null;
             }
+          });
+        },
+        onTransition: (target) => {
+          if (target.currentTween) target.currentTween.kill();
+          // Check if DOM structure already exists
+          let innerEl = target.querySelector('.oh__inner');
+          if (!innerEl) {
+            // Structure doesn't exist, need to create it
+            const innerContent = target.innerHTML;
+            target.innerHTML = `<div class="oh__inner">${innerContent}</div>`;
+            target.classList.add('oh');
+            innerEl = target.querySelector('.oh__inner');
+          }
+          gsap.set(target, { transformOrigin: '50% 50%' });
+          // Animate directly from current state to new target
+          target.currentTween = gsap.to(innerEl, {
+            yPercent: -102,
+            ...animationProps,
+            onComplete: () => { target.currentTween = null; }
           });
         }
       };
@@ -521,6 +565,19 @@ function initInstance(instanceSettings, globalSettings) {
             ...animationProps,
             onComplete: () => { resetElement(target); target.currentTween = null; }
           });
+        },
+        onTransition: (target) => {
+          if (target.currentTween) target.currentTween.kill();
+          // Update transform origin if different
+          gsap.set(target, { transformOrigin: `${effect6Settings.originX6}% ${effect6Settings.originY6}%` });
+          // Animate directly from current state to new target
+          target.currentTween = gsap.to(target, {
+            xPercent: effect6Settings.xPercent,
+            rotation: effect6Settings.rotation,
+            y: () => target.offsetWidth - target.offsetHeight,
+            ...animationProps,
+            onComplete: () => { target.currentTween = null; }
+          });
         }
       };
       
@@ -564,6 +621,31 @@ function initInstance(instanceSettings, globalSettings) {
             ...animationProps,
             onComplete: () => { resetElement(target); target.currentTween = null; }
           });
+        },
+        onTransition: (target) => {
+          if (target.currentTween) target.currentTween.kill();
+          // Build target animation props
+          let animationProps_effect7 = { ...animationProps };
+          if (effect7Settings.moveDistance) {
+            const match = effect7Settings.moveDistance.match(/^([+-]?\d+(?:\.\d+)?)(px|%)$/i);
+            if (match) {
+              const number = parseFloat(match[1]);
+              const unit = match[2].toLowerCase();
+              if (unit === 'px') {
+                animationProps_effect7.x = -Math.abs(number);
+              } else if (unit === '%') {
+                animationProps_effect7.xPercent = -Math.abs(number);
+              }
+            }
+          }
+          if (!effect7Settings.moveDistance || !animationProps_effect7.x && !animationProps_effect7.xPercent) {
+            animationProps_effect7.x = () => -1 * (target.offsetWidth + target.offsetLeft);
+          }
+          // Animate directly from current state to new target
+          target.currentTween = gsap.to(target, {
+            ...animationProps_effect7,
+            onComplete: () => { target.currentTween = null; }
+          });
         }
       };
       
@@ -595,8 +677,156 @@ function initInstance(instanceSettings, globalSettings) {
 
   // Store ScrollTrigger instances for this instance
   let scrollTriggerInstances = [];
-  let currentActiveEffect = null;
+  let currentActiveTriggerId = null; // Track which specific trigger is controlling the logo
   let activeTriggersMap = new Map();
+
+  // Helper function to check if smooth transition can be used
+  function canUseSmoothTransition(previousEffectNumber, newEffectNumber, newEffect) {
+    // Can only use smooth transition if:
+    // 1. Both effects are the same type
+    // 2. Neither is effect 4 (Text Split) or 5 (Character Shuffle) - they modify DOM
+    // 3. New effect has onTransition method
+    return previousEffectNumber === newEffectNumber &&
+           previousEffectNumber !== 4 &&
+           previousEffectNumber !== 5 &&
+           typeof newEffect.onTransition === 'function';
+  }
+
+  // Helper function to extract normalized settings for an effect
+  function getNormalizedEffectSettings(effectNumber, overrideSettings, instanceSettings) {
+    const useOverride = overrideSettings !== null;
+    const settings = instanceSettings;
+    
+    // Base normalized settings (common to all effects)
+    const normalized = {
+      effectNumber: effectNumber,
+      duration: useOverride && overrideSettings.duration !== undefined 
+        ? parseFloat(overrideSettings.duration) 
+        : (parseFloat(settings.duration) || defaultAnimationProps.duration),
+      ease: useOverride && overrideSettings.ease !== undefined 
+        ? overrideSettings.ease 
+        : (settings.ease || defaultAnimationProps.ease),
+      offsetStart: useOverride && overrideSettings.offsetStart !== undefined 
+        ? parseInt(overrideSettings.offsetStart) 
+        : offsetStart,
+      offsetEnd: useOverride && overrideSettings.offsetEnd !== undefined 
+        ? parseInt(overrideSettings.offsetEnd) 
+        : offsetEnd
+    };
+    
+    // Effect-specific settings
+    switch (effectNumber) {
+      case 1: // Scale
+        normalized.effect1ScaleDown = useOverride && overrideSettings.effect1ScaleDown !== undefined 
+          ? parseFloat(overrideSettings.effect1ScaleDown) 
+          : (settings.effect1ScaleDown !== undefined && settings.effect1ScaleDown !== '' ? parseFloat(settings.effect1ScaleDown) : 0);
+        normalized.effect1OriginX = useOverride && overrideSettings.effect1OriginX !== undefined 
+          ? parseInt(overrideSettings.effect1OriginX) 
+          : (settings.effect1OriginX !== undefined && settings.effect1OriginX !== '' ? parseInt(settings.effect1OriginX) : 0);
+        normalized.effect1OriginY = useOverride && overrideSettings.effect1OriginY !== undefined 
+          ? parseInt(overrideSettings.effect1OriginY) 
+          : (settings.effect1OriginY !== undefined && settings.effect1OriginY !== '' ? parseInt(settings.effect1OriginY) : 50);
+        break;
+        
+      case 2: // Blur
+        normalized.effect2BlurAmount = useOverride && overrideSettings.effect2BlurAmount !== undefined 
+          ? parseFloat(overrideSettings.effect2BlurAmount) 
+          : (settings.effect2BlurAmount !== undefined && settings.effect2BlurAmount !== '' ? parseFloat(settings.effect2BlurAmount) : 5);
+        normalized.effect2BlurScale = useOverride && overrideSettings.effect2BlurScale !== undefined 
+          ? parseFloat(overrideSettings.effect2BlurScale) 
+          : (settings.effect2BlurScale !== undefined && settings.effect2BlurScale !== '' ? parseFloat(settings.effect2BlurScale) : 0.9);
+        normalized.effect2BlurDuration = useOverride && overrideSettings.effect2BlurDuration !== undefined 
+          ? parseFloat(overrideSettings.effect2BlurDuration) 
+          : (settings.effect2BlurDuration !== undefined && settings.effect2BlurDuration !== '' ? parseFloat(settings.effect2BlurDuration) : 0.2);
+        break;
+        
+      case 3: // Slide Text
+        // Effect 3 has no specific settings beyond base settings
+        break;
+        
+      case 4: // Text Split
+        normalized.effect4TextXRange = useOverride && overrideSettings.effect4TextXRange !== undefined 
+          ? parseInt(overrideSettings.effect4TextXRange) 
+          : (settings.effect4TextXRange !== undefined && settings.effect4TextXRange !== '' ? parseInt(settings.effect4TextXRange) : 50);
+        normalized.effect4TextYRange = useOverride && overrideSettings.effect4TextYRange !== undefined 
+          ? parseInt(overrideSettings.effect4TextYRange) 
+          : (settings.effect4TextYRange !== undefined && settings.effect4TextYRange !== '' ? parseInt(settings.effect4TextYRange) : 40);
+        normalized.effect4StaggerAmount = useOverride && overrideSettings.effect4StaggerAmount !== undefined 
+          ? parseFloat(overrideSettings.effect4StaggerAmount) 
+          : (settings.effect4StaggerAmount !== undefined && settings.effect4StaggerAmount !== '' ? parseFloat(settings.effect4StaggerAmount) : 0.03);
+        break;
+        
+      case 5: // Character Shuffle
+        normalized.effect5ShuffleIterations = useOverride && overrideSettings.effect5ShuffleIterations !== undefined 
+          ? parseInt(overrideSettings.effect5ShuffleIterations) 
+          : (settings.effect5ShuffleIterations !== undefined && settings.effect5ShuffleIterations !== '' ? parseInt(settings.effect5ShuffleIterations) : 2);
+        normalized.effect5ShuffleDuration = useOverride && overrideSettings.effect5ShuffleDuration !== undefined 
+          ? parseFloat(overrideSettings.effect5ShuffleDuration) 
+          : (settings.effect5ShuffleDuration !== undefined && settings.effect5ShuffleDuration !== '' ? parseFloat(settings.effect5ShuffleDuration) : 0.03);
+        normalized.effect5CharDelay = useOverride && overrideSettings.effect5CharDelay !== undefined 
+          ? parseFloat(overrideSettings.effect5CharDelay) 
+          : (settings.effect5CharDelay !== undefined && settings.effect5CharDelay !== '' ? parseFloat(settings.effect5CharDelay) : 0.03);
+        break;
+        
+      case 6: // Rotation
+        normalized.effect6Rotation = useOverride && overrideSettings.effect6Rotation !== undefined 
+          ? parseInt(overrideSettings.effect6Rotation) 
+          : (settings.effect6Rotation !== undefined && settings.effect6Rotation !== '' ? parseInt(settings.effect6Rotation) : -90);
+        normalized.effect6XPercent = useOverride && overrideSettings.effect6XPercent !== undefined 
+          ? parseInt(overrideSettings.effect6XPercent) 
+          : (settings.effect6XPercent !== undefined && settings.effect6XPercent !== '' ? parseInt(settings.effect6XPercent) : -5);
+        normalized.effect6OriginX = useOverride && overrideSettings.effect6OriginX !== undefined 
+          ? parseInt(overrideSettings.effect6OriginX) 
+          : (settings.effect6OriginX !== undefined && settings.effect6OriginX !== '' ? parseInt(settings.effect6OriginX) : 0);
+        normalized.effect6OriginY = useOverride && overrideSettings.effect6OriginY !== undefined 
+          ? parseInt(overrideSettings.effect6OriginY) 
+          : (settings.effect6OriginY !== undefined && settings.effect6OriginY !== '' ? parseInt(settings.effect6OriginY) : 100);
+        break;
+        
+      case 7: // Move Away
+        normalized.effect7MoveDistance = useOverride && overrideSettings.effect7MoveDistance !== undefined && overrideSettings.effect7MoveDistance !== ''
+          ? overrideSettings.effect7MoveDistance 
+          : (settings.effect7MoveDistance !== undefined && settings.effect7MoveDistance !== '' ? settings.effect7MoveDistance : '');
+        break;
+    }
+    
+    return normalized;
+  }
+
+  // Helper function to compare if two settings objects are equal
+  function areSettingsEqual(settings1, settings2) {
+    if (!settings1 || !settings2) return false;
+    if (settings1.effectNumber !== settings2.effectNumber) return false;
+    
+    // Get all keys from both objects
+    const keys1 = Object.keys(settings1);
+    const keys2 = Object.keys(settings2);
+    
+    // Check if they have the same number of keys
+    if (keys1.length !== keys2.length) return false;
+    
+    // Compare each key
+    for (const key of keys1) {
+      if (settings1[key] !== settings2[key]) {
+        return false;
+      }
+    }
+    
+    return true;
+  }
+
+  // Helper function to check if we should skip transition (same effect type and settings)
+  function shouldSkipTransition(previousTriggerData, newEffectNumber, newEffect, newNormalizedSettings) {
+    // Skip if both effects are the same type and same settings
+    // This prevents unnecessary retriggers when overlapping elements have identical effects
+    if (previousTriggerData && previousTriggerData.effectNumber === newEffectNumber) {
+      // Compare normalized settings to determine if they're identical
+      if (previousTriggerData.normalizedSettings && newNormalizedSettings) {
+        return areSettingsEqual(previousTriggerData.normalizedSettings, newNormalizedSettings);
+      }
+    }
+    return false;
+  }
 
   // Effect lookup function
   function getEffectForElement(element) {
@@ -633,7 +863,7 @@ function initInstance(instanceSettings, globalSettings) {
       scrollTriggerInstances.forEach(instance => instance.kill());
     }
     scrollTriggerInstances = [];
-    currentActiveEffect = null;
+    currentActiveTriggerId = null;
     activeTriggersMap.clear();
     
     if (contentBlocks.length === 0) {
@@ -656,11 +886,12 @@ function initInstance(instanceSettings, globalSettings) {
         overrideSettings = null;
       }
       const effect = buildEffect(effectNumber, overrideSettings);
+      const normalizedSettings = getNormalizedEffectSettings(effectNumber, overrideSettings, instanceSettings);
       debug.log(`Block ${index + 1} effect:`, { block, mappedResult, usedEffect: effectNumber, hasOverride: overrideSettings !== null, isDefault: mappedResult === null });
-      return { block, effect, effectNumber, overrideSettings };
+      return { block, effect, effectNumber, overrideSettings, normalizedSettings };
     });
     
-    blockEffects.forEach(({ block, effect, effectNumber }, index) => {
+    blockEffects.forEach(({ block, effect, effectNumber, normalizedSettings }, index) => {
       if (!effect) { debug.warn(`Skipping block ${index + 1} - invalid effect`); return; }
       
       const triggerId = `${instanceId}_trigger_${index}`;
@@ -671,70 +902,162 @@ function initInstance(instanceSettings, globalSettings) {
         start: () => `top ${elementOffsetTop + effect.offsetStartAmount + globalOffset}px`,
         end: () => `bottom ${elementOffsetTop - effect.offsetEndAmount + globalOffset}px`,
         onEnter: () => {
-          debug.log('ScrollTrigger: onEnter', block, 'Effect:', effectNumber);
-          activeTriggersMap.set(triggerId, { effect, effectNumber });
-          if (currentActiveEffect === null) {
+          debug.log('ScrollTrigger: onEnter', block, 'Effect:', effectNumber, 'TriggerId:', triggerId);
+          activeTriggersMap.set(triggerId, { effect, effectNumber, triggerId, index, normalizedSettings });
+          
+          // When scrolling down and entering a new trigger, it should always take priority
+          // This is the element we're scrolling INTO
+          if (currentActiveTriggerId === null) {
             debug.log('First trigger activated, calling effect.onEnter');
-            currentActiveEffect = effectNumber;
+            currentActiveTriggerId = triggerId;
             effect.onEnter(logoElement);
-          } else if (currentActiveEffect !== effectNumber) {
-            debug.log('Switching effect from', currentActiveEffect, 'to', effectNumber);
-            const previousEffect = buildEffect(currentActiveEffect, null);
-            if (previousEffect) { previousEffect.onLeave(logoElement); }
-            currentActiveEffect = effectNumber;
-            setTimeout(() => effect.onEnter(logoElement), 50);
-          } else { debug.log('Same effect already active, skipping onEnter'); }
+          } else if (currentActiveTriggerId !== triggerId) {
+            // Different trigger - switch to this one (it's the one being scrolled into)
+            debug.log('Switching from trigger', currentActiveTriggerId, 'to', triggerId);
+            const previousTriggerData = activeTriggersMap.get(currentActiveTriggerId);
+            if (previousTriggerData) {
+              // Check if we should skip transition (same effect type and settings)
+              if (shouldSkipTransition(previousTriggerData, effectNumber, effect, normalizedSettings)) {
+                debug.log('Skipping transition - same effect type and settings');
+                currentActiveTriggerId = triggerId;
+                // Just update the active trigger, no need to retrigger the effect
+              } else if (canUseSmoothTransition(previousTriggerData.effectNumber, effectNumber, effect)) {
+                // Check if we can use smooth transition
+                debug.log('Using smooth transition from effect', previousTriggerData.effectNumber, 'to', effectNumber);
+                currentActiveTriggerId = triggerId;
+                effect.onTransition(logoElement);
+              } else {
+                // Fallback to current behavior
+                debug.log('Using fallback transition (different effect types or DOM-modifying effect)');
+                previousTriggerData.effect.onLeave(logoElement);
+                currentActiveTriggerId = triggerId;
+                setTimeout(() => effect.onEnter(logoElement), 50);
+              }
+            } else {
+              currentActiveTriggerId = triggerId;
+              effect.onEnter(logoElement);
+            }
+          } else {
+            debug.log('Same trigger already active, skipping onEnter');
+          }
         },
         onLeaveBack: () => {
-          debug.log('ScrollTrigger: onLeaveBack', block, 'Effect:', effectNumber);
+          debug.log('ScrollTrigger: onLeaveBack', block, 'Effect:', effectNumber, 'TriggerId:', triggerId);
           activeTriggersMap.delete(triggerId);
+          
           if (activeTriggersMap.size === 0) {
             debug.log('Last trigger deactivated, calling effect.onLeave');
             effect.onLeave(logoElement);
-            currentActiveEffect = null;
-          } else {
+            currentActiveTriggerId = null;
+          } else if (currentActiveTriggerId === triggerId) {
+            // The active trigger is leaving - find the best remaining trigger
+            // When scrolling up, the trigger with the highest index (lower on page) should take over
             const remainingTriggers = Array.from(activeTriggersMap.values());
-            const nextEffect = remainingTriggers[remainingTriggers.length - 1];
-            if (nextEffect && nextEffect.effectNumber !== currentActiveEffect) {
-              debug.log('Transitioning back to effect:', nextEffect.effectNumber);
-              effect.onLeave(logoElement);
-              currentActiveEffect = nextEffect.effectNumber;
-              setTimeout(() => nextEffect.effect.onEnter(logoElement), 50);
+            const nextTrigger = remainingTriggers.reduce((best, current) => 
+              !best || current.index > best.index ? current : best, null);
+            
+            if (nextTrigger) {
+              debug.log('Transitioning to trigger:', nextTrigger.triggerId, 'Effect:', nextTrigger.effectNumber);
+              // Create a temporary trigger data object for comparison
+              const currentTriggerData = { effect, effectNumber, triggerId, index, normalizedSettings };
+              // Check if we should skip transition (same effect type and settings)
+              if (shouldSkipTransition(currentTriggerData, nextTrigger.effectNumber, nextTrigger.effect, nextTrigger.normalizedSettings)) {
+                debug.log('Skipping transition - same effect type and settings');
+                currentActiveTriggerId = nextTrigger.triggerId;
+                // Just update the active trigger, no need to retrigger the effect
+              } else if (canUseSmoothTransition(effectNumber, nextTrigger.effectNumber, nextTrigger.effect)) {
+                // Check if we can use smooth transition
+                debug.log('Using smooth transition from effect', effectNumber, 'to', nextTrigger.effectNumber);
+                currentActiveTriggerId = nextTrigger.triggerId;
+                nextTrigger.effect.onTransition(logoElement);
+              } else {
+                // Fallback to current behavior
+                debug.log('Using fallback transition (different effect types or DOM-modifying effect)');
+                effect.onLeave(logoElement);
+                currentActiveTriggerId = nextTrigger.triggerId;
+                setTimeout(() => nextTrigger.effect.onEnter(logoElement), 50);
+              }
             }
           }
         },
         onLeave: () => {
-          debug.log('ScrollTrigger: onLeave', block, 'Effect:', effectNumber);
+          debug.log('ScrollTrigger: onLeave', block, 'Effect:', effectNumber, 'TriggerId:', triggerId);
           activeTriggersMap.delete(triggerId);
+          
           if (activeTriggersMap.size === 0) {
             debug.log('Last trigger deactivated, calling effect.onLeave');
             effect.onLeave(logoElement);
-            currentActiveEffect = null;
-          } else {
+            currentActiveTriggerId = null;
+          } else if (currentActiveTriggerId === triggerId) {
+            // The active trigger is leaving - find the best remaining trigger
+            // When scrolling down, the trigger with the lowest index (higher on page) should take over
             const remainingTriggers = Array.from(activeTriggersMap.values());
-            const nextEffect = remainingTriggers[remainingTriggers.length - 1];
-            if (nextEffect && nextEffect.effectNumber !== currentActiveEffect) {
-              debug.log('Transitioning to effect:', nextEffect.effectNumber);
-              effect.onLeave(logoElement);
-              currentActiveEffect = nextEffect.effectNumber;
-              setTimeout(() => nextEffect.effect.onEnter(logoElement), 50);
+            const nextTrigger = remainingTriggers.reduce((best, current) => 
+              !best || current.index < best.index ? current : best, null);
+            
+            if (nextTrigger) {
+              debug.log('Transitioning to trigger:', nextTrigger.triggerId, 'Effect:', nextTrigger.effectNumber);
+              // Create a temporary trigger data object for comparison
+              const currentTriggerData = { effect, effectNumber, triggerId, index, normalizedSettings };
+              // Check if we should skip transition (same effect type and settings)
+              if (shouldSkipTransition(currentTriggerData, nextTrigger.effectNumber, nextTrigger.effect, nextTrigger.normalizedSettings)) {
+                debug.log('Skipping transition - same effect type and settings');
+                currentActiveTriggerId = nextTrigger.triggerId;
+                // Just update the active trigger, no need to retrigger the effect
+              } else if (canUseSmoothTransition(effectNumber, nextTrigger.effectNumber, nextTrigger.effect)) {
+                // Check if we can use smooth transition
+                debug.log('Using smooth transition from effect', effectNumber, 'to', nextTrigger.effectNumber);
+                currentActiveTriggerId = nextTrigger.triggerId;
+                nextTrigger.effect.onTransition(logoElement);
+              } else {
+                // Fallback to current behavior
+                debug.log('Using fallback transition (different effect types or DOM-modifying effect)');
+                effect.onLeave(logoElement);
+                currentActiveTriggerId = nextTrigger.triggerId;
+                setTimeout(() => nextTrigger.effect.onEnter(logoElement), 50);
+              }
             }
           }
         },
         onEnterBack: () => {
-          debug.log('ScrollTrigger: onEnterBack', block, 'Effect:', effectNumber);
-          activeTriggersMap.set(triggerId, { effect, effectNumber });
-          if (currentActiveEffect === null) {
+          debug.log('ScrollTrigger: onEnterBack', block, 'Effect:', effectNumber, 'TriggerId:', triggerId);
+          activeTriggersMap.set(triggerId, { effect, effectNumber, triggerId, index, normalizedSettings });
+          
+          // When scrolling up and entering a new trigger, it should always take priority
+          // This is the element we're scrolling INTO
+          if (currentActiveTriggerId === null) {
             debug.log('First trigger activated, calling effect.onEnter');
-            currentActiveEffect = effectNumber;
+            currentActiveTriggerId = triggerId;
             effect.onEnter(logoElement);
-          } else if (currentActiveEffect !== effectNumber) {
-            debug.log('Switching effect from', currentActiveEffect, 'to', effectNumber);
-            const previousEffect = buildEffect(currentActiveEffect, null);
-            if (previousEffect) { previousEffect.onLeave(logoElement); }
-            currentActiveEffect = effectNumber;
-            setTimeout(() => effect.onEnter(logoElement), 50);
-          } else { debug.log('Same effect already active, skipping onEnter'); }
+          } else if (currentActiveTriggerId !== triggerId) {
+            // Different trigger - switch to this one (it's the one being scrolled into)
+            debug.log('Switching from trigger', currentActiveTriggerId, 'to', triggerId);
+            const previousTriggerData = activeTriggersMap.get(currentActiveTriggerId);
+            if (previousTriggerData) {
+              // Check if we should skip transition (same effect type and settings)
+              if (shouldSkipTransition(previousTriggerData, effectNumber, effect, normalizedSettings)) {
+                debug.log('Skipping transition - same effect type and settings');
+                currentActiveTriggerId = triggerId;
+                // Just update the active trigger, no need to retrigger the effect
+              } else if (canUseSmoothTransition(previousTriggerData.effectNumber, effectNumber, effect)) {
+                // Check if we can use smooth transition
+                debug.log('Using smooth transition from effect', previousTriggerData.effectNumber, 'to', effectNumber);
+                currentActiveTriggerId = triggerId;
+                effect.onTransition(logoElement);
+              } else {
+                // Fallback to current behavior
+                debug.log('Using fallback transition (different effect types or DOM-modifying effect)');
+                previousTriggerData.effect.onLeave(logoElement);
+                currentActiveTriggerId = triggerId;
+                setTimeout(() => effect.onEnter(logoElement), 50);
+              }
+            } else {
+              currentActiveTriggerId = triggerId;
+              effect.onEnter(logoElement);
+            }
+          } else {
+            debug.log('Same trigger already active, skipping onEnter');
+          }
         }
       });
       

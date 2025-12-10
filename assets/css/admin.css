@@ -678,3 +678,82 @@
     margin-top: 10px;
 }
 
+/* =========================================
+   Instance Selector Bar Styles
+   ========================================= */
+
+.caa-instance-selector-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 15px 20px;
+    background: linear-gradient(to bottom, #f9f9f9, #f0f0f1);
+    border: 1px solid #ccd0d4;
+    border-radius: 4px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.caa-instance-selector-bar label {
+    font-weight: 600;
+    color: #1d2327;
+    margin-right: 5px;
+}
+
+.caa-instance-dropdown {
+    min-width: 200px;
+    padding: 6px 10px;
+    font-size: 14px;
+    border: 1px solid #8c8f94;
+    border-radius: 4px;
+    background: #fff;
+}
+
+.caa-instance-dropdown:focus {
+    border-color: #2271b1;
+    box-shadow: 0 0 0 1px #2271b1;
+    outline: none;
+}
+
+.caa-new-instance-btn {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 5px;
+}
+
+.caa-new-instance-btn .dashicons {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    line-height: 1;
+}
+
+.caa-delete-instance-btn {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 5px;
+    color: #b32d2e !important;
+    text-decoration: none !important;
+}
+
+.caa-delete-instance-btn:hover {
+    color: #a00 !important;
+}
+
+.caa-delete-instance-btn .dashicons {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    line-height: 1;
+}
+
+.caa-instance-selector-bar .caa-instance-count {
+    margin-left: auto;
+    color: #646970;
+    font-size: 13px;
+    padding: 4px 12px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 12px;
+}
+

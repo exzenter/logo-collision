@@ -59,8 +59,8 @@
         if (hash) {
             var hashValue = hash.substring(1);
             
-            // Check if it's a sub-tab (pro-instances, pro-mappings or pro-filtering)
-            if (hashValue === 'pro-instances' || hashValue === 'pro-mappings' || hashValue === 'pro-filtering') {
+            // Check if it's a sub-tab (pro-general, pro-mappings or pro-filtering)
+            if (hashValue === 'pro-general' || hashValue === 'pro-mappings' || hashValue === 'pro-filtering' || hashValue === 'pro-version') {
                 // Activate the pro-version main tab first
                 $('.caa-tabs .nav-tab').removeClass('nav-tab-active');
                 $('.caa-tabs .nav-tab[data-tab="pro-version"]').addClass('nav-tab-active');
@@ -68,11 +68,12 @@
                 $('#pro-version').addClass('caa-tab-active');
                 
                 // Then activate the sub-tab
+                var subtab = hashValue === 'pro-version' ? 'pro-general' : hashValue;
                 setTimeout(function() {
                     $('.caa-sub-tabs .nav-tab').removeClass('nav-tab-active');
-                    $('.caa-sub-tabs .nav-tab[data-subtab="' + hashValue + '"]').addClass('nav-tab-active');
+                    $('.caa-sub-tabs .nav-tab[data-subtab="' + subtab + '"]').addClass('nav-tab-active');
                     $('.caa-sub-tab-content').removeClass('caa-sub-tab-active');
-                    $('#' + hashValue).addClass('caa-sub-tab-active');
+                    $('#' + subtab).addClass('caa-sub-tab-active');
                 }, 10);
             }
             // Check if it's a main tab
@@ -81,15 +82,29 @@
                 $('.caa-tabs .nav-tab[data-tab="' + hashValue + '"]').addClass('nav-tab-active');
                 $('.caa-tab-content').removeClass('caa-tab-active');
                 $('#' + hashValue).addClass('caa-tab-active');
-                
-                // If it's the pro-version tab, activate default sub-tab (instances)
-                if (hashValue === 'pro-version') {
-                    setTimeout(function() {
-                        $('.caa-sub-tabs .nav-tab[data-subtab="pro-instances"]').trigger('click');
-                    }, 10);
-                }
             }
         }
+        
+        // =====================
+        // Instance Selector (Pro Version)
+        // =====================
+        
+        // Handle instance selector dropdown change
+        $('#caa-instance-select').on('change', function() {
+            var instanceId = $(this).val();
+            var currentUrl = window.location.href;
+            
+            // Build new URL with instance_id parameter
+            var url = new URL(currentUrl);
+            url.searchParams.set('instance_id', instanceId);
+            
+            // Preserve the hash (current sub-tab)
+            var currentHash = window.location.hash || '#pro-general';
+            url.hash = currentHash;
+            
+            // Redirect to new URL
+            window.location.href = url.toString();
+        });
         
         // =====================
         // Effect Accordions
@@ -411,8 +426,8 @@
         
         var selectedItems = typeof caaAdmin !== 'undefined' ? caaAdmin.selectedItems : [];
         
-        // Show/hide filtering options based on enable checkbox
-        $('#caa_pro_enable_filtering').on('change', function() {
+        // Show/hide filtering options based on enable checkbox (per-instance)
+        $('#caa_instance_enable_filtering').on('change', function() {
             if ($(this).is(':checked')) {
                 $('#caa-filtering-options').slideDown(200);
             } else {
@@ -422,7 +437,7 @@
         
         // Update labels based on filter mode
         function updateFilterLabels() {
-            var mode = $('input[name="caa_pro_filter_mode"]:checked').val();
+            var mode = $('input[name="caa_instance_filter_mode"]:checked').val();
             var isInclude = mode === 'include';
             
             // Update post types label
@@ -447,7 +462,7 @@
         }
         
         // Update labels when mode changes
-        $('input[name="caa_pro_filter_mode"]').on('change', function() {
+        $('input[name="caa_instance_filter_mode"]').on('change', function() {
             updateFilterLabels();
         });
         
@@ -513,7 +528,7 @@
                 return;
             }
             
-            var mode = $('input[name="caa_pro_filter_mode"]:checked').val();
+            var mode = $('input[name="caa_instance_filter_mode"]:checked').val();
             var isInclude = mode === 'include';
             var removeText = isInclude ? 'Remove from includes' : 'Remove from excludes';
             
@@ -531,7 +546,7 @@
                 }).text('×'),
                 $('<input>', {
                     'type': 'hidden',
-                    'name': 'caa_pro_selected_items[]',
+                    'name': 'caa_instance_selected_items[]',
                     'value': id
                 })
             );

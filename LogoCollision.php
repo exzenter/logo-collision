@@ -43,6 +43,26 @@ class Context_Aware_Animation {
     }
     
     /**
+     * Plugin activation hook - creates Instance 1 with defaults if no instances exist
+     */
+    public static function activate() {
+        $instances = get_option('caa_instances', array());
+        
+        // Only create Instance 1 if no instances exist
+        if (empty($instances)) {
+            $plugin = self::get_instance();
+            $default_data = $plugin->get_default_instance_data();
+            $default_data['logo_id'] = ''; // Empty by default, user must configure
+            
+            $instances = array(
+                1 => $default_data
+            );
+            
+            update_option('caa_instances', $instances);
+        }
+    }
+    
+    /**
      * Constructor
      */
     private function __construct() {
@@ -57,6 +77,7 @@ class Context_Aware_Animation {
         add_action('admin_menu', array($this, 'add_settings_page'));
         add_action('admin_init', array($this, 'register_settings'));
         add_action('admin_init', array($this, 'maybe_migrate_legacy_settings'));
+        add_action('admin_init', array($this, 'ensure_instance_exists'));
         add_action('wp_ajax_caa_search_posts', array($this, 'ajax_search_posts'));
         
         // Frontend hooks
@@ -278,6 +299,25 @@ class Context_Aware_Animation {
         
         // Set a flag to show migration notice
         set_transient('caa_migration_notice', true, 60);
+    }
+    
+    /**
+     * Ensure at least Instance 1 exists (for existing installations)
+     */
+    public function ensure_instance_exists() {
+        $instances = $this->get_all_instances();
+        
+        // Create Instance 1 if no instances exist
+        if (empty($instances)) {
+            $default_data = $this->get_default_instance_data();
+            $default_data['logo_id'] = ''; // Empty by default
+            
+            $instances = array(
+                1 => $default_data
+            );
+            
+            update_option('caa_instances', $instances);
+        }
     }
     
     /**
@@ -1281,6 +1321,9 @@ class Context_Aware_Animation {
         );
     }
 }
+
+// Register activation hook
+register_activation_hook(__FILE__, array('Context_Aware_Animation', 'activate'));
 
 // Initialize the plugin
 Context_Aware_Animation::get_instance();
