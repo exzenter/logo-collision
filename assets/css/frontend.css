@@ -1,0 +1,12 @@
+/* Context-Aware Animation - Frontend Styles */
+
+/* Styles for Effect 3: Slide Text */
+.oh {
+    overflow: hidden;
+}
+
+.oh__inner {
+    display: inline-block;
+}
+
+

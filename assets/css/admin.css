@@ -1,0 +1,154 @@
+/* Context-Aware Animation - Admin Styles */
+
+.caa-info-box {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    border-left: 4px solid #2271b1;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+    margin: 20px 0;
+    padding: 15px 20px;
+}
+
+.caa-info-box h2 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.caa-info-box p {
+    margin: 10px 0;
+}
+
+.caa-info-box ul {
+    margin: 10px 0 10px 20px;
+}
+
+.caa-info-box code {
+    background: #f0f0f1;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: Consolas, Monaco, monospace;
+    font-size: 13px;
+}
+
+.form-table th {
+    width: 200px;
+}
+
+.form-table fieldset label {
+    display: block;
+    margin-bottom: 8px;
+    padding: 5px 0;
+}
+
+.form-table fieldset label input[type="radio"] {
+    margin-right: 8px;
+}
+
+.form-table .description {
+    font-style: italic;
+    color: #646970;
+    margin-top: 5px;
+}
+
+/* Effect Options and Accordion Styles */
+.caa-effect-option {
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #ddd;
+}
+
+.caa-effect-option:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.caa-effect-option label {
+    display: block;
+    cursor: pointer;
+    padding: 8px 0;
+    margin-bottom: 0;
+}
+
+.caa-effect-option label:hover {
+    background-color: #f9f9f9;
+    padding-left: 5px;
+    margin-left: -5px;
+    border-radius: 3px;
+}
+
+.caa-effect-accordion {
+    display: none;
+    margin-top: 10px;
+    margin-left: 25px;
+    padding: 15px;
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    border-left: 3px solid #2271b1;
+    border-radius: 3px;
+    overflow: hidden;
+    transition: all 0.2s ease-in-out;
+}
+
+.caa-effect-accordion[style*="display: block"] {
+    display: block !important;
+}
+
+.caa-accordion-content {
+    animation: fadeIn 0.2s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.caa-effect-accordion .form-table {
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+.caa-effect-accordion .form-table th {
+    width: 180px;
+    padding: 10px 10px 10px 0;
+    font-weight: 500;
+}
+
+.caa-effect-accordion .form-table td {
+    padding: 10px 0;
+}
+
+/* Global Animation Settings Section */
+.form-table tr:has(.form-table) {
+    background: transparent;
+}
+
+.form-table tr:has(.form-table) td {
+    padding: 15px 0;
+}
+
+.form-table tr:has(.form-table) .form-table {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    padding: 10px;
+    margin: 0;
+}
+
+.form-table tr:has(.form-table) .form-table th {
+    width: 200px;
+    padding: 10px 10px 10px 15px;
+}
+
+.form-table tr:has(.form-table) .form-table td {
+    padding: 10px 15px 10px 0;
+}
+
+
