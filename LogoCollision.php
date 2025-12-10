@@ -405,6 +405,7 @@ class Context_Aware_Animation {
             return $instance['logo_id'];
         }
         
+        /* translators: %d: Instance ID */
         return sprintf(__('Instance %d', 'logo-collision'), $id);
     }
     

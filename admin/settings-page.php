@@ -215,7 +215,8 @@ if (isset($_POST['caa_save_instance']) && check_admin_referer('caa_instance_nonc
     if ($is_new) {
         $instances = $plugin_instance->get_all_instances();
         if (count($instances) >= CAA_MAX_INSTANCES) {
-            echo '<div class="notice notice-error is-dismissible"><p>' . sprintf(esc_html__('Maximum of %d instances reached.', 'logo-collision'), CAA_MAX_INSTANCES) . '</p></div>';
+            /* translators: %d: Maximum number of instances */
+            echo '<div class="notice notice-error is-dismissible"><p>' . esc_html(sprintf(__('Maximum of %d instances reached.', 'logo-collision'), CAA_MAX_INSTANCES)) . '</p></div>';
         } else {
             $instance_id = $plugin_instance->get_next_instance_id();
         }
@@ -1351,7 +1352,9 @@ wp_localize_script('caa-admin', 'caaAdmin', array(
                     </button>
                 </form>
             <?php endif; ?>
-            <span class="caa-instance-count"><?php printf(esc_html__('%d of %d instances', 'logo-collision'), $instance_count, CAA_MAX_INSTANCES); ?></span>
+            <span class="caa-instance-count"><?php
+			/* translators: 1: Current instance count, 2: Maximum instance count */
+			echo esc_html(sprintf(__('%1$d of %2$d instances', 'logo-collision'), $instance_count, CAA_MAX_INSTANCES)); ?></span>
         </div>
         
         <!-- Sub-tab Navigation -->
@@ -1380,6 +1383,7 @@ wp_localize_script('caa-admin', 'caaAdmin', array(
                         if ($creating_new_instance) {
                             esc_html_e('Create New Instance', 'logo-collision');
                         } else {
+                            /* translators: %s: Instance name */
                             printf(esc_html__('Instance Settings: %s', 'logo-collision'), esc_html($plugin_instance->get_instance_name($selected_instance_id, $selected_instance)));
                         }
                         ?>
